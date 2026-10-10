@@ -133,3 +133,9 @@ max-width:100%;
   background: #fff;
   border-radius: 14px;
 }
+
+.gallery {
+  
+  display: flex;
+  gap: 10px;
+}
