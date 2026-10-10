@@ -126,3 +126,10 @@ max-width:100%;
   border: none;
   cursor: pointer;
 }
+#dataForm {
+  max-width: 420px;
+  margin: 25px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+}
