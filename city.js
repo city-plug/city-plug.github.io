@@ -1,2 +1,1 @@
-alert("JavaScript is working!");
 
