@@ -18,7 +18,13 @@ async function saveRating(name, value) {
     },
     body: JSON.stringify({ business: name, stars: value })
   });
+    if (!res.ok) {
+    const msg = await res.text();
+    alert(res.status + " " + msg);
+  }
   return res.ok;
+
+  
 }
 document.querySelectorAll(".rating").forEach(function (box) {
   const stars = box.querySelectorAll(".star");
