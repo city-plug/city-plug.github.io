@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Business Owner Login</title>
+<link rel="stylesheet" href="owner-login.css">
+</head>
+<body>
+
+<div class="top">
+  <div class="logo">Plug:in</div>
+  <div class="tag">Business owner access</div>
+</div>
+
+<div class="sheet">
+  <div class="toggle">
+    <button id="loginTab" class="active">Log in</button>
+    <button id="signupTab">Create account</button>
+  </div>
+
+  <div id="form">
+    <label for="email">Email</label>
+    <input id="email" type="email" placeholder="you@example.com">
+    <label for="pw">Password</label>
+    <input id="pw" type="password" placeholder="Your password">
+    <button class="submit" id="submitBtn">Log in</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="owner-login.js"></script>
+
+</body>
+</html>

@@ -134,11 +134,4 @@ max-width:100%;
   border-radius: 14px;
 }
 
-.gallery {
-  
-  display: flex;
-  gap: 10px;
-}
-.star { font-size: 28px; color: #ccc; cursor: pointer; }
-.star.on { color: gold; }
-.rating-text { font-size: 13px; margin: 4px 0 0; }
+
