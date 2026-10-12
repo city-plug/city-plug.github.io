@@ -31,7 +31,7 @@ if (typeof supabase === "undefined") {
       message.textContent = error.message;
     } else {
       message.textContent = "Logged in! Redirecting...";
-      window.location.href = "owner.html";
+      window.location.href = "home.html";
     }
   });
 }
