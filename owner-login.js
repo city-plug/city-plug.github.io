@@ -1,3 +1,5 @@
+alert('script loaded: ' + typeof window.supabase);
+
 const supabase = window.supabase.createClient(
   'https://ctqsufsamvayeccndmtm.supabase.co',
   'sb_publishable_FWGp8XdnG44eekvGBhFcOQ_zqhdgE7B'
