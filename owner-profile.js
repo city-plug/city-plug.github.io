@@ -12,6 +12,9 @@ async function init() {
   profilePic.src = biz.profile_pic;
   ownerName.textContent = biz.name;
   categoryTag.textContent = biz.category;
+  statusTag.textContent = biz.approved ? 'Verified ✓' : 'Unverified';
+statusTag.className = 'status-tag ' + (biz.approved ? 'ok' : 'pending');
+
   ownerBio.textContent = biz.bio;
 
   loadRating();
