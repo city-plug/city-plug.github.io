@@ -27,7 +27,7 @@ submitBtn.onclick = async () => {
   const email = document.getElementById('email').value;
   const pw = document.getElementById('pw').value;
   msg.style.color = '#b00020';
-  msg.textContent = '';
+  msg.textContent = 'please wait.....';
 
   if (mode === 'signup') {
     const { data, error } = await supabase.auth.signUp({
