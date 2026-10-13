@@ -44,6 +44,6 @@ submitBtn.onclick = async () => {
       password: pw
     });
     if (error) { msg.textContent = error.message; return; }
-    window.location.href = 'owner-signup.html';
+    window.location.href = 'owner-profile.html';
   }
 };
