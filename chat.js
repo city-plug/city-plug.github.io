@@ -93,6 +93,15 @@ function addMessage(m) {
   const div = document.createElement("div");
   div.className = "msg " + (mine ? "mine" : "theirs");
 
+  if (m.image_path) {
+    const img = document.createElement("img");
+    img.className = "chat-img";
+    div.appendChild(img);
+    db.storage.from("chat-images")
+      .createSignedUrl(m.image_path, 3600)
+      .then(({ data }) => { if (data) img.src = data.signedUrl; });
+  }
+
   if (m.body) {
     const p = document.createElement("p");
     p.textContent = m.body;
@@ -139,7 +148,56 @@ document.getElementById("chatForm").addEventListener("submit", async (e) => {
   loadMessages();
 });
 
+document.getElementById("picInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file || !chatOpen) return;
+
+  const types = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+  const ext = types[file.type];
+  if (!ext) {
+    alert("Only JPG, PNG or WebP pictures are allowed.");
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    alert("Picture is too big. Maximum is 5 MB.");
+    return;
+  }
+
+  const path = orderId + "/" + Date.now() + "." + ext;
+  const { error: upErr } = await db.storage
+    .from("chat-images")
+    .upload(path, file, { contentType: file.type });
+  if (upErr) {
+    alert("Couldn't upload the picture.");
+    return;
+  }
+
+  const { error } = await db.from("messages")
+    .insert({ order_id: orderId, sender_id: me.id, image_path: path });
+  if (error) {
+    alert("Couldn't send the picture.");
+    return;
+  }
+  loadMessages();
+});
+
+document.getElementById("receivedBtn").addEventListener("click", async () => {
+  if (!confirm("Confirm you received your order? The chat will close.")) return;
+
+  const { error } = await db.rpc("mark_order_received", { p_order: orderId });
+  if (error) {
+    alert("Couldn't confirm. Try again.");
+    return;
+  }
+  chatOpen = false;
+  order.received_at = new Date().toISOString();
+  showHeader();
+});
+
 startChat();
+
+
 
 
 
