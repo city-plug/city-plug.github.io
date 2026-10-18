@@ -55,6 +55,13 @@ async function init() {
   loadProducts();
 
   if (isOwner) {
+    // A shortcut to the owner's orders
+    const ordersLink = document.createElement("a");
+    ordersLink.className = "owner-link";
+    ordersLink.href = "owner-orders.html";
+    ordersLink.textContent = "View my orders →";
+    ownerBox.before(ordersLink);
+
     ownerBox.hidden = false;
     setupProductForm();
     setupPayouts();
@@ -516,5 +523,7 @@ async function setupPayouts() {
       payoutMsg.textContent = err.message;
     }
   });
+}
+
 }
 
