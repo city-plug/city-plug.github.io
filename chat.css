@@ -5,6 +5,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
 }
 
 .chat-top {
@@ -83,6 +84,7 @@ body {
   color: #fff;
   font-weight: 700;
 }
+
 .chat-note {
   margin: 0;
   padding: 8px 16px 14px;
