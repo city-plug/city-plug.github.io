@@ -249,7 +249,20 @@ function makeCard(p) {
     del.type = "button";
     del.className = "del";
     del.textContent = "Delete";
-    del.addEventListener("click", () => deleteProduct(p.id));
+    // Two taps to delete (pop-up boxes can be blocked on phones)
+    let armed = false;
+    del.addEventListener("click", () => {
+      if (!armed) {
+        armed = true;
+        del.textContent = "Tap again to delete";
+        setTimeout(() => {
+          armed = false;
+          del.textContent = "Delete";
+        }, 4000);
+        return;
+      }
+      deleteProduct(p.id);
+    });
     info.appendChild(del);
   }
 
@@ -257,8 +270,6 @@ function makeCard(p) {
 }
 
 async function deleteProduct(id) {
-  if (!confirm("Delete this product?")) return;
-
   const { error } = await db.from("products").delete().eq("id", id);
   if (error) {
     alert(error.message);
@@ -465,8 +476,11 @@ async function setupPayouts() {
     e.preventDefault();
     payoutMsg.textContent = "";
 
-    // Last check: make sure the money goes to the right person
-    if (resolvedName && !confirm("Pay out to " + resolvedName + "?")) return;
+    // Safety: the account name must have appeared, so you can check it is yours
+    if (!resolvedName) {
+      payoutMsg.textContent = "Wait for the account name to appear, and check it is yours, then save.";
+      return;
+    }
 
     payoutBtn.disabled = true;
     payoutBtn.textContent = "Saving...";
