@@ -39,7 +39,7 @@ async function init() {
 
   const { data, error } = await db
     .from("businesses")
-    .select("id, owner_id, name, city, category, description, payments_enabled")
+    .select("id, owner_id, name, city, category, description, payments_enabled, whatsapp, address, contact_email, instagram, facebook, tiktok")
     .eq("id", businessId)
     .maybeSingle();
 
@@ -52,6 +52,7 @@ async function init() {
   isOwner = !!session && session.user.id === business.owner_id;
 
   showBusiness();
+  showContact();
   loadRating();
   loadProducts();
 
@@ -64,6 +65,7 @@ async function init() {
     ownerBox.before(ordersLink);
 
     ownerBox.hidden = false;
+    setupContactForm();
     setupProductForm();
     setupPayouts();
   } else {
@@ -330,7 +332,8 @@ function setupBuying() {
       return;
     }
     if (session && address.length < 8) {
-      payNote.textContent = "Please enter your delivery address.";
+      payNote.textContent = "Please type a fuller delivery address: house number, street, area and city.";
+      deliveryBox.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -588,6 +591,159 @@ async function setupPayouts() {
     }
   });
 }
+
+
+// ---------- Contact details (shown to everyone) ----------
+
+// "08012345678" or "+234 801 234 5678" -> "2348012345678" (the form WhatsApp links need)
+function whatsappDigits(text) {
+  let d = String(text || "").replace(/[^0-9]/g, "");
+  if (d.startsWith("0")) d = "234" + d.slice(1);
+  return d;
+}
+
+// "@my_shop" or " my_shop " -> "my_shop". Anything unusual becomes empty.
+function cleanHandle(text) {
+  const h = String(text || "").trim().replace(/^@/, "");
+  return /^[A-Za-z0-9._-]{1,40}$/.test(h) ? h : "";
+}
+
+function contactLine(label, text, href) {
+  const row = document.createElement("div");
+  row.className = "order-row";
+  const left = document.createElement("span");
+  left.textContent = label;
+  const right = document.createElement("span");
+  right.style.textAlign = "right";
+  right.style.wordBreak = "break-word";
+  if (href) {
+    const a = document.createElement("a");
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.style.color = "#1f6feb";
+    a.textContent = text;
+    right.appendChild(a);
+  } else {
+    right.textContent = text;
+  }
+  row.append(left, right);
+  return row;
+}
+
+function showContact() {
+  let box = document.getElementById("contactBox");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "contactBox";
+    box.className = "rating-box";
+    document.getElementById("bizDesc").insertAdjacentElement("afterend", box);
+  }
+  box.innerHTML = "";
+
+  const wa = whatsappDigits(business.whatsapp);
+  const ig = cleanHandle(business.instagram);
+  const fb = cleanHandle(business.facebook);
+  const tt = cleanHandle(business.tiktok);
+
+  if (wa.length >= 10) box.appendChild(contactLine("WhatsApp", "+" + wa, "https://wa.me/" + wa));
+  if (business.address) box.appendChild(contactLine("Address", business.address, ""));
+  if (business.contact_email) box.appendChild(contactLine("Email", business.contact_email, "mailto:" + business.contact_email));
+  if (ig) box.appendChild(contactLine("Instagram", "@" + ig, "https://instagram.com/" + ig));
+  if (fb) box.appendChild(contactLine("Facebook", fb, "https://facebook.com/" + fb));
+  if (tt) box.appendChild(contactLine("TikTok", "@" + tt, "https://tiktok.com/@" + tt));
+
+  box.hidden = box.children.length === 0;
+}
+
+// ---------- Owner: edit contact details ----------
+function setupContactForm() {
+  const form = document.createElement("form");
+  form.className = "owner-box";
+  form.innerHTML =
+    "<h3>Contact details</h3>" +
+    '<p class="note">Customers see these on your page. Fill in only what you want to show.</p>' +
+    '<label for="cWhatsapp">WhatsApp number</label>' +
+    '<input id="cWhatsapp" type="tel" placeholder="08012345678">' +
+    '<label for="cAddress">Business address</label>' +
+    '<textarea id="cAddress" rows="2" placeholder="Shop number, street, area, city"></textarea>' +
+    '<label for="cEmail">Email</label>' +
+    '<input id="cEmail" type="email" placeholder="shop@example.com">' +
+    '<label for="cInstagram">Instagram username</label>' +
+    '<input id="cInstagram" type="text" placeholder="@yourshop">' +
+    '<label for="cFacebook">Facebook page name</label>' +
+    '<input id="cFacebook" type="text" placeholder="yourshop">' +
+    '<label for="cTiktok">TikTok username</label>' +
+    '<input id="cTiktok" type="text" placeholder="@yourshop">' +
+    '<button type="submit" id="cBtn">Save contact details</button>' +
+    '<p class="small-msg" id="cMsg"></p>';
+  ownerBox.parentNode.insertBefore(form, ownerBox);
+
+  const f = (id) => document.getElementById(id);
+  f("cWhatsapp").value = business.whatsapp || "";
+  f("cAddress").value = business.address || "";
+  f("cEmail").value = business.contact_email || "";
+  f("cInstagram").value = business.instagram || "";
+  f("cFacebook").value = business.facebook || "";
+  f("cTiktok").value = business.tiktok || "";
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = f("cMsg");
+    msg.textContent = "";
+
+    const whatsapp = f("cWhatsapp").value.trim();
+    const email = f("cEmail").value.trim();
+    const instagram = f("cInstagram").value.trim();
+    const facebook = f("cFacebook").value.trim();
+    const tiktok = f("cTiktok").value.trim();
+
+    if (whatsapp && whatsappDigits(whatsapp).length < 10) {
+      msg.textContent = "That WhatsApp number looks too short.";
+      return;
+    }
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      msg.textContent = "That email does not look right.";
+      return;
+    }
+    if (instagram && !cleanHandle(instagram)) {
+      msg.textContent = "Instagram: use just the username, like @yourshop.";
+      return;
+    }
+    if (facebook && !cleanHandle(facebook)) {
+      msg.textContent = "Facebook: use just the page name, like yourshop.";
+      return;
+    }
+    if (tiktok && !cleanHandle(tiktok)) {
+      msg.textContent = "TikTok: use just the username, like @yourshop.";
+      return;
+    }
+
+    const details = {
+      whatsapp: whatsapp || null,
+      address: f("cAddress").value.trim() || null,
+      contact_email: email || null,
+      instagram: instagram ? cleanHandle(instagram) : null,
+      facebook: facebook ? cleanHandle(facebook) : null,
+      tiktok: tiktok ? cleanHandle(tiktok) : null
+    };
+
+    f("cBtn").disabled = true;
+    const { error } = await db.from("businesses").update(details).eq("id", business.id);
+    f("cBtn").disabled = false;
+
+    if (error) {
+      msg.textContent = "Could not save: " + error.message;
+      return;
+    }
+
+    Object.assign(business, details);
+    showContact();
+    msg.textContent = "Saved. Customers can now see this.";
+  });
+}
+
+ 
 
 
 
