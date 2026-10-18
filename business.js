@@ -68,6 +68,9 @@ async function init() {
     setupProductForm();
     setupPayouts();
   } else {
+    document.getElementById("msgLink").href = "chat.html?business=" + business.id;
+document.getElementById("msgWrap").hidden = false;
+
     setupBuying();
   }
 }
