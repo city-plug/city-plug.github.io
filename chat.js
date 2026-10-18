@@ -1,3 +1,8 @@
+window.onerror = function (msg, src, line) {
+  document.getElementById("chatStatus").textContent =
+    "Error: " + msg + " (line " + line + ")";
+};
+
 const params = new URLSearchParams(location.search);
 const orderId = params.get("order");
 
@@ -195,7 +200,12 @@ document.getElementById("receivedBtn").addEventListener("click", async () => {
   showHeader();
 });
 
-startChat();
+startChat().catch(function (err) {
+  document.getElementById("chatStatus").textContent =
+    "Error: " + (err.message || err);
+});
+
+
 
 
 
