@@ -14,7 +14,7 @@ let chatOpen = false;
 
 async function startChat() {
   if (!orderId) {
-    document.getElementById("chatStatus").textContent = "No order selected.";
+    location.href = "index.html";
     return;
   }
 
