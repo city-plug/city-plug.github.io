@@ -1,6 +1,5 @@
 const params = new URLSearchParams(window.location.search);
-const businessParam = params.get("business"); // customer opens a chat with a business
-const convParam = params.get("c");            // owner opens an existing conversation
+const orderId = params.get("order");
 
 const titleEl = document.getElementById("chatTitle");
 const backEl = document.getElementById("chatBack");
@@ -14,16 +13,34 @@ const errEl = document.getElementById("chatError");
 
 const LINK_PATTERN = /(https?:\/\/|www\.|[a-z0-9-]+\.(com|net|org|ng|io|co|me|ly|xyz|info|biz|app|link|site|online)\b|[a-z0-9._-]+@[a-z0-9.-]+)/i;
 
+// A note and a button that this page adds for itself
+const noteEl = document.createElement("p");
+noteEl.className = "chat-status";
+statusEl.after(noteEl);
+
+const receivedBtn = document.createElement("button");
+receivedBtn.type = "button";
+receivedBtn.textContent = "I received my order";
+receivedBtn.hidden = true;
+receivedBtn.style.cssText = "margin:8px 16px;padding:10px 14px;border:0;border-radius:8px;background:#16a34a;color:#fff;font-size:15px";
+noteEl.after(receivedBtn);
+
 let me = null;
-let conv = null;          // { id }
-let businessInfo = null;  // { id, name, owner_id }
+let conv = null;
+let biz = null;
 let isOwner = false;
+let closed = false;
 let listening = false;
-const shown = new Map();  // message id -> { tick }
+const shown = new Map();
 
 init();
 
 async function init() {
+  if (!orderId) {
+    window.location.href = "index.html";
+    return;
+  }
+
   const { data: s } = await db.auth.getSession();
   if (!s.session) {
     window.location.href = "login.html";
@@ -31,59 +48,80 @@ async function init() {
   }
   me = s.session.user;
 
-  if (convParam) {
-    const { data, error } = await db
-      .from("conversations")
-      .select("id, business_id, businesses(name, owner_id)")
-      .eq("id", convParam)
-      .maybeSingle();
-    if (error || !data) {
-      statusEl.textContent = "Conversation not found.";
-      return;
-    }
-    conv = { id: data.id };
-    businessInfo = { id: data.business_id, name: data.businesses.name, owner_id: data.businesses.owner_id };
-  } else if (businessParam) {
-    const { data, error } = await db
-      .from("businesses")
-      .select("id, name, owner_id")
-      .eq("id", businessParam)
-      .maybeSingle();
-    if (error || !data) {
-      statusEl.textContent = "Business not found.";
-      return;
-    }
-    businessInfo = data;
-    if (data.owner_id === me.id) {
-      window.location.href = "inbox.html";
-      return;
-    }
-    const { data: existing } = await db
-      .from("conversations")
-      .select("id")
-      .eq("business_id", data.id)
-      .eq("customer_id", me.id)
-      .maybeSingle();
-    if (existing) conv = existing;
-  } else {
-    window.location.href = "index.html";
+  const { data: c } = await db
+    .from("conversations")
+    .select("id, business_id, customer_id")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (!c) {
+    statusEl.textContent = "No chat found for this order. A chat opens once the order is paid.";
     return;
   }
+  conv = c;
 
-  isOwner = businessInfo.owner_id === me.id;
-  titleEl.textContent = isOwner ? "Customer" : businessInfo.name;
-  backEl.textContent = isOwner ? "← Inbox" : "← Back";
-  backEl.href = isOwner ? "inbox.html" : "business.html?id=" + businessInfo.id;
+  const { data: b } = await db
+    .from("businesses")
+    .select("id, name, owner_id")
+    .eq("id", c.business_id)
+    .maybeSingle();
 
-  form.hidden = false;
-  if (conv) {
-    statusEl.textContent = "";
-    await loadMessages();
-    listenLive();
-  } else {
-    statusEl.textContent = "Say hello. Your message goes only to this business.";
+  if (!b) {
+    statusEl.textContent = "Could not load this chat.";
+    return;
   }
+  biz = b;
+  isOwner = b.owner_id === me.id;
+
+  titleEl.textContent = isOwner ? "Order chat · Customer" : b.name;
+  backEl.textContent = isOwner ? "← Orders" : "← Back";
+  backEl.href = isOwner ? "owner-orders.html" : "business.html?id=" + b.id;
+
+  await refreshClosed();
+  statusEl.textContent = "";
+  await loadMessages();
+  listenLive();
 }
+
+// Is the trade still open? Open = order is paid and the customer has not confirmed receipt
+async function refreshClosed() {
+  const { data } = await db
+    .from("orders")
+    .select("status, received_at")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  closed = !data || data.status !== "paid" || !!data.received_at;
+  form.hidden = closed;
+  receivedBtn.hidden = closed || isOwner;
+  noteEl.textContent = closed
+    ? "This chat is closed because the order is complete. You can still read the messages."
+    : "";
+}
+
+// Two taps to confirm (pop-up boxes can be blocked on phones)
+let armed = false;
+receivedBtn.addEventListener("click", async () => {
+  if (!armed) {
+    armed = true;
+    receivedBtn.textContent = "Tap again to confirm. This closes the chat.";
+    setTimeout(() => {
+      armed = false;
+      receivedBtn.textContent = "I received my order";
+    }, 4000);
+    return;
+  }
+  armed = false;
+  receivedBtn.disabled = true;
+  const { error } = await db.rpc("confirm_received", { p_order_id: orderId });
+  receivedBtn.disabled = false;
+  receivedBtn.textContent = "I received my order";
+  if (error) {
+    showError(error.message);
+    return;
+  }
+  await refreshClosed();
+});
 
 async function loadMessages() {
   const { data, error } = await db
@@ -158,7 +196,16 @@ function showError(text) {
   errEl.textContent = text || "";
 }
 
-// Mark the other person's messages as read (this is what makes "Seen" appear for them)
+// If the database refuses because the chat just closed, say so nicely
+async function handleSendError(error) {
+  if (error.message && error.message.toLowerCase().includes("row-level security")) {
+    await refreshClosed();
+    showError("This chat is closed.");
+  } else {
+    showError(error.message);
+  }
+}
+
 async function markRead() {
   await db
     .from("messages")
@@ -168,7 +215,6 @@ async function markRead() {
     .is("read_at", null);
 }
 
-// New messages and "seen" updates arrive live, no refresh needed
 function listenLive() {
   if (listening) return;
   listening = true;
@@ -190,37 +236,6 @@ function listenLive() {
     .subscribe();
 }
 
-// The conversation is created on the first message, so empty chats never pile up
-async function ensureConversation() {
-  if (conv) return true;
-
-  const { data, error } = await db
-    .from("conversations")
-    .insert({ business_id: businessInfo.id, customer_id: me.id })
-    .select("id")
-    .single();
-
-  if (error) {
-    const { data: existing } = await db
-      .from("conversations")
-      .select("id")
-      .eq("business_id", businessInfo.id)
-      .eq("customer_id", me.id)
-      .maybeSingle();
-    if (!existing) {
-      showError("Could not start the chat: " + error.message);
-      return false;
-    }
-    conv = existing;
-  } else {
-    conv = data;
-  }
-
-  statusEl.textContent = "";
-  listenLive();
-  return true;
-}
-
 // ---------- Send a text message ----------
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -235,21 +250,15 @@ form.addEventListener("submit", async (e) => {
   }
 
   sendBtn.disabled = true;
-  if (!(await ensureConversation())) {
-    sendBtn.disabled = false;
-    return;
-  }
-
   const { data, error } = await db
     .from("messages")
     .insert({ conversation_id: conv.id, sender_id: me.id, body: text })
     .select("id, sender_id, body, image_path, created_at, read_at")
     .single();
-
   sendBtn.disabled = false;
 
   if (error) {
-    showError(error.message);
+    await handleSendError(error);
     return;
   }
 
@@ -276,18 +285,13 @@ photoInput.addEventListener("change", async () => {
   }
 
   sendBtn.disabled = true;
-  if (!(await ensureConversation())) {
-    sendBtn.disabled = false;
-    return;
-  }
-
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const path = conv.id + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
 
   const { error: uploadError } = await db.storage.from("chat-images").upload(path, file);
   if (uploadError) {
     sendBtn.disabled = false;
-    showError("Picture upload failed: " + uploadError.message);
+    await handleSendError(uploadError);
     return;
   }
 
@@ -296,14 +300,15 @@ photoInput.addEventListener("change", async () => {
     .insert({ conversation_id: conv.id, sender_id: me.id, image_path: path })
     .select("id, sender_id, body, image_path, created_at, read_at")
     .single();
-
   sendBtn.disabled = false;
 
   if (error) {
-    showError(error.message);
+    await handleSendError(error);
     return;
   }
 
   await addMessage(data);
   scrollDown();
 });
+
+
