@@ -79,6 +79,11 @@ function showBusiness() {
   document.getElementById("bizName").textContent = business.name;
   document.getElementById("bizTag").textContent = business.city + " · " + business.category;
   document.getElementById("bizDesc").textContent = business.description || "";
+  document.getElementById("bizAddress").textContent = business.address || "";
+  if (business.address) {
+  const map = document.getElementById("bizMap");
+  map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(business.address + ", " + business.city);
+  map.hidden = false;
 
   const back = document.getElementById("back");
   back.textContent = "← " + business.category + " in " + business.city;
@@ -631,101 +636,42 @@ function contactLine(label, text, href) {
   return row;
 }
 
-function showContact() {
-  let box = document.getElementById("contactBox");
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "contactBox";
-    box.className = "rating-box";
-    document.getElementById("bizDesc").insertAdjacentElement("afterend", box);
-  }
-  box.innerHTML = "";
-
-  const wa = whatsappDigits(business.whatsapp);
-  const ig = cleanHandle(business.instagram);
-  const fb = cleanHandle(business.facebook);
-  const tt = cleanHandle(business.tiktok);
-
-  if (wa.length >= 10) box.appendChild(contactLine("WhatsApp", "+" + wa, "https://wa.me/" + wa));
-  if (business.address) box.appendChild(contactLine("Address", business.address, ""));
-  if (business.contact_email) box.appendChild(contactLine("Email", business.contact_email, "mailto:" + business.contact_email));
-  if (ig) box.appendChild(contactLine("Instagram", "@" + ig, "https://instagram.com/" + ig));
-  if (fb) box.appendChild(contactLine("Facebook", fb, "https://facebook.com/" + fb));
-  if (tt) box.appendChild(contactLine("TikTok", "@" + tt, "https://tiktok.com/@" + tt));
-
-  box.hidden = box.children.length === 0;
+if (business.address) {
+ document.getElementById("bizAddress").textContent = business.address || "";
+const map = document.getElementById("bizMap");
+if (business.address) {
+  map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(business.address + ", " + business.city);
+  map.hidden = false;
+} else {
+  map.hidden = true;
 }
-
+}
 // ---------- Owner: edit contact details ----------
 function setupContactForm() {
   const form = document.createElement("form");
   form.className = "owner-box";
   form.innerHTML =
-    "<h3>Contact details</h3>" +
-    '<p class="note">Customers see these on your page. Fill in only what you want to show.</p>' +
-    '<label for="cWhatsapp">WhatsApp number</label>' +
-    '<input id="cWhatsapp" type="tel" placeholder="08012345678">' +
-    '<label for="cAddress">Business address</label>' +
-    '<textarea id="cAddress" rows="2" placeholder="Shop number, street, area, city"></textarea>' +
-    '<label for="cEmail">Email</label>' +
-    '<input id="cEmail" type="email" placeholder="shop@example.com">' +
-    '<label for="cInstagram">Instagram username</label>' +
-    '<input id="cInstagram" type="text" placeholder="@yourshop">' +
-    '<label for="cFacebook">Facebook page name</label>' +
-    '<input id="cFacebook" type="text" placeholder="yourshop">' +
-    '<label for="cTiktok">TikTok username</label>' +
-    '<input id="cTiktok" type="text" placeholder="@yourshop">' +
-    '<button type="submit" id="cBtn">Save contact details</button>' +
-    '<p class="small-msg" id="cMsg"></p>';
-  ownerBox.parentNode.insertBefore(form, ownerBox);
 
-  const f = (id) => document.getElementById(id);
-  f("cWhatsapp").value = business.whatsapp || "";
-  f("cAddress").value = business.address || "";
-  f("cEmail").value = business.contact_email || "";
-  f("cInstagram").value = business.instagram || "";
-  f("cFacebook").value = business.facebook || "";
-  f("cTiktok").value = business.tiktok || "";
+"<h3>Business address</h3>" +
+'<p class="note">Customers see this on your page.</p>' +
+'<label for="cAddress">Business address</label>' +
+'<textarea id="cAddress" rows="2" placeholder="Shop number, street, area, city"></textarea>' +
+'<button type="submit" id="cBtn">Save address</button>' +
+'<p class="small-msg" id="cMsg"></p>';
+ownerBox.parentNode.insertBefore(form, ownerBox);
+
+const f = (id) => document.getElementById(id);
+f("cAddress").value = business.address || "";
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = f("cMsg");
     msg.textContent = "";
 
-    const whatsapp = f("cWhatsapp").value.trim();
-    const email = f("cEmail").value.trim();
-    const instagram = f("cInstagram").value.trim();
-    const facebook = f("cFacebook").value.trim();
-    const tiktok = f("cTiktok").value.trim();
-
-    if (whatsapp && whatsappDigits(whatsapp).length < 10) {
-      msg.textContent = "That WhatsApp number looks too short.";
-      return;
-    }
-    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      msg.textContent = "That email does not look right.";
-      return;
-    }
-    if (instagram && !cleanHandle(instagram)) {
-      msg.textContent = "Instagram: use just the username, like @yourshop.";
-      return;
-    }
-    if (facebook && !cleanHandle(facebook)) {
-      msg.textContent = "Facebook: use just the page name, like yourshop.";
-      return;
-    }
-    if (tiktok && !cleanHandle(tiktok)) {
-      msg.textContent = "TikTok: use just the username, like @yourshop.";
-      return;
-    }
+   
 
     const details = {
-      whatsapp: whatsapp || null,
-      address: f("cAddress").value.trim() || null,
-      contact_email: email || null,
-      instagram: instagram ? cleanHandle(instagram) : null,
-      facebook: facebook ? cleanHandle(facebook) : null,
-      tiktok: tiktok ? cleanHandle(tiktok) : null
+    address: f("cAddress").value.trim() || null
     };
 
     f("cBtn").disabled = true;
