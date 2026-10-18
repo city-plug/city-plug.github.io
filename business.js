@@ -18,12 +18,12 @@ const payTotal = document.getElementById("payTotal");
 const payBtn = document.getElementById("payBtn");
 const payNote = document.getElementById("payNote");
 
-let session = null;   // the logged-in person (or null)
-let business = null;  // this page's business
-let isOwner = false;  // true only if the logged-in person owns this business
-let myRating = 0;     // the stars this person already gave
-let deliveryBox = null; // the delivery details form (customers only)
-let cart = {};        // what the customer has picked: product id -> { product, qty }
+let session = null;
+let business = null;
+let isOwner = false;
+let myRating = 0;
+let deliveryBox = null;
+let cart = {};
 
 init();
 
@@ -39,7 +39,7 @@ async function init() {
 
   const { data, error } = await db
     .from("businesses")
-    .select("id, owner_id, name, city, category, description, payments_enabled, whatsapp, address, contact_email, instagram, facebook, tiktok")
+    .select("id, owner_id, name, city, category, description, payments_enabled, address")
     .eq("id", businessId)
     .maybeSingle();
 
@@ -57,7 +57,6 @@ async function init() {
   loadProducts();
 
   if (isOwner) {
-    // A shortcut to the owner's orders
     const ordersLink = document.createElement("a");
     ordersLink.className = "owner-link";
     ordersLink.href = "owner-orders.html";
@@ -79,11 +78,6 @@ function showBusiness() {
   document.getElementById("bizName").textContent = business.name;
   document.getElementById("bizTag").textContent = business.city + " · " + business.category;
   document.getElementById("bizDesc").textContent = business.description || "";
-  document.getElementById("bizAddress").textContent = business.address || "";
-  if (business.address) {
-  const map = document.getElementById("bizMap");
-  map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(business.address + ", " + business.city);
-  map.hidden = false;
 
   const back = document.getElementById("back");
   back.textContent = "← " + business.category + " in " + business.city;
@@ -91,6 +85,18 @@ function showBusiness() {
               "&category=" + encodeURIComponent(business.category);
 
   bizSection.hidden = false;
+}
+
+// ---------- Address and map link (shown to everyone) ----------
+function showContact() {
+  document.getElementById("bizAddress").textContent = business.address || "";
+  const map = document.getElementById("bizMap");
+  if (business.address) {
+    map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(business.address + ", " + business.city);
+    map.hidden = false;
+  } else {
+    map.hidden = true;
+  }
 }
 
 // ---------- Ratings ----------
@@ -115,7 +121,6 @@ async function loadRating() {
     return;
   }
 
-  // Did this person already rate? Show their stars filled in.
   const mine = session ? list.find((r) => r.user_id === session.user.id) : null;
   myRating = mine ? mine.stars : 0;
   drawStars();
@@ -137,13 +142,11 @@ function drawStars() {
 async function rate(stars) {
   rateMsg.textContent = "";
 
-  // Visitors who are not logged in must log in first
   if (!session) {
     rateMsg.innerHTML = 'Log in to rate. <a href="login.html">Log in</a>';
     return;
   }
 
-  // upsert = add the rating, or change it if this person rated before
   const { error } = await db.from("ratings").upsert(
     { business_id: business.id, user_id: session.user.id, stars: stars },
     { onConflict: "business_id,user_id" }
@@ -186,8 +189,6 @@ async function loadProducts() {
   data.forEach((p) => productsBox.appendChild(makeCard(p)));
 }
 
-// One product card, following your template:
-// picture on the left, name, description, price, and a quantity stepper
 function makeCard(p) {
   const card = document.createElement("div");
   card.className = "product";
@@ -239,7 +240,6 @@ function makeCard(p) {
       count = Math.max(0, Math.min(50, count + n));
       qty.textContent = count;
 
-      // Keep the basket up to date
       if (count === 0) {
         delete cart[p.id];
       } else {
@@ -264,7 +264,6 @@ function makeCard(p) {
     del.type = "button";
     del.className = "del";
     del.textContent = "Delete";
-    // Two taps to delete (pop-up boxes can be blocked on phones)
     let armed = false;
     del.addEventListener("click", () => {
       if (!armed) {
@@ -300,7 +299,6 @@ function setupBuying() {
     return;
   }
 
-  // Delivery details box (built here, so no change to business.html is needed)
   deliveryBox = document.createElement("div");
   deliveryBox.className = "owner-box";
   deliveryBox.hidden = true;
@@ -319,7 +317,6 @@ function setupBuying() {
   const dAddress = document.getElementById("dAddress");
   const dNote = document.getElementById("dNote");
 
-  // Remember the last details on this phone, so repeat buyers type less
   try {
     dPhone.value = localStorage.getItem("cp_phone") || "";
     dAddress.value = localStorage.getItem("cp_address") || "";
@@ -328,7 +325,6 @@ function setupBuying() {
   payBtn.addEventListener("click", async () => {
     payNote.textContent = "";
 
-    // Delivery details are required before paying
     const phone = dPhone.value.trim();
     const address = dAddress.value.trim();
     const note = dNote.value.trim();
@@ -342,7 +338,6 @@ function setupBuying() {
       return;
     }
 
-    // Visitors who are not logged in must log in first
     if (!session) {
       payNote.innerHTML = 'Please <a href="login.html">log in</a> to pay.';
       return;
@@ -357,8 +352,6 @@ function setupBuying() {
     payBtn.textContent = "Please wait...";
 
     try {
-      // The server works out the price and the 12% split, then starts the payment
-      // Give up after 25 seconds instead of waiting forever
       const timeout = new Promise((resolve, reject) => {
         setTimeout(() => {
           reject(new Error("This is taking too long. Check your network and try again."));
@@ -375,7 +368,6 @@ function setupBuying() {
         timeout
       ]);
 
-      // Save the delivery details on the new order BEFORE leaving for Paystack
       const { data: pending, error: findErr } = await db
         .from("orders")
         .select("id")
@@ -399,14 +391,12 @@ function setupBuying() {
         localStorage.setItem("cp_address", address);
       } catch (e) {}
 
-      // Backup link, in case the phone does not jump to Paystack by itself
       payNote.textContent = "";
       const link = document.createElement("a");
       link.href = result.authorization_url;
       link.textContent = "Tap here if Paystack does not open";
       payNote.appendChild(link);
 
-      // Go to Paystack's secure payment page
       window.location.href = result.authorization_url;
     } catch (e) {
       payBtn.disabled = false;
@@ -442,7 +432,6 @@ function setupProductForm() {
       return;
     }
 
-    // Allow commas in the price, like 400,000
     const priceText = document.getElementById("pPrice").value.replace(/,/g, "").trim();
     const price = Number(priceText);
 
@@ -454,11 +443,9 @@ function setupProductForm() {
     btn.disabled = true;
     btn.textContent = "Saving...";
 
-    // Step 1: upload the picture (if there is one)
     let imageUrl = null;
     if (file) {
       const ext = file.name.split(".").pop();
-      // Each owner's pictures go in their own folder, named by their user id
       const path = session.user.id + "/" + Date.now() + "." + ext;
 
       const { error: uploadError } = await db.storage
@@ -475,7 +462,6 @@ function setupProductForm() {
       imageUrl = db.storage.from("product-images").getPublicUrl(path).data.publicUrl;
     }
 
-    // Step 2: save the product with its picture link
     const { error } = await db.from("products").insert({
       business_id: business.id,
       name: document.getElementById("pName").value.trim(),
@@ -510,7 +496,6 @@ async function setupPayouts() {
   const payoutMsg = document.getElementById("payoutMsg");
   const payoutBtn = document.getElementById("payoutBtn");
 
-  // Already set up? Then just show a summary.
   const { data: payout } = await db
     .from("business_payouts")
     .select("account_name, account_last4")
@@ -526,7 +511,6 @@ async function setupPayouts() {
     return;
   }
 
-  // Fill the bank list
   try {
     const result = await callPayments({ action: "banks" });
     bankSelect.innerHTML = '<option value="">Choose your bank</option>';
@@ -541,7 +525,6 @@ async function setupPayouts() {
     payoutMsg.textContent = e.message;
   }
 
-  // Once the bank and the 10 digits are in, show whose account it is
   let resolvedName = "";
 
   async function checkAccount() {
@@ -572,7 +555,6 @@ async function setupPayouts() {
     e.preventDefault();
     payoutMsg.textContent = "";
 
-    // Safety: the account name must have appeared, so you can check it is yours
     if (!resolvedName) {
       payoutMsg.textContent = "Wait for the account name to appear, and check it is yours, then save.";
       return;
@@ -597,81 +579,29 @@ async function setupPayouts() {
   });
 }
 
-
-// ---------- Contact details (shown to everyone) ----------
-
-// "08012345678" or "+234 801 234 5678" -> "2348012345678" (the form WhatsApp links need)
-function whatsappDigits(text) {
-  let d = String(text || "").replace(/[^0-9]/g, "");
-  if (d.startsWith("0")) d = "234" + d.slice(1);
-  return d;
-}
-
-// "@my_shop" or " my_shop " -> "my_shop". Anything unusual becomes empty.
-function cleanHandle(text) {
-  const h = String(text || "").trim().replace(/^@/, "");
-  return /^[A-Za-z0-9._-]{1,40}$/.test(h) ? h : "";
-}
-
-function contactLine(label, text, href) {
-  const row = document.createElement("div");
-  row.className = "order-row";
-  const left = document.createElement("span");
-  left.textContent = label;
-  const right = document.createElement("span");
-  right.style.textAlign = "right";
-  right.style.wordBreak = "break-word";
-  if (href) {
-    const a = document.createElement("a");
-    a.href = href;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.style.color = "#1f6feb";
-    a.textContent = text;
-    right.appendChild(a);
-  } else {
-    right.textContent = text;
-  }
-  row.append(left, right);
-  return row;
-}
-
-if (business.address) {
- document.getElementById("bizAddress").textContent = business.address || "";
-const map = document.getElementById("bizMap");
-if (business.address) {
-  map.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(business.address + ", " + business.city);
-  map.hidden = false;
-} else {
-  map.hidden = true;
-}
-}
-// ---------- Owner: edit contact details ----------
+// ---------- Owner: edit business address ----------
 function setupContactForm() {
   const form = document.createElement("form");
   form.className = "owner-box";
   form.innerHTML =
+    "<h3>Business address</h3>" +
+    '<p class="note">Customers see this on your page.</p>' +
+    '<label for="cAddress">Business address</label>' +
+    '<textarea id="cAddress" rows="2" placeholder="Shop number, street, area, city"></textarea>' +
+    '<button type="submit" id="cBtn">Save address</button>' +
+    '<p class="small-msg" id="cMsg"></p>';
+  ownerBox.parentNode.insertBefore(form, ownerBox);
 
-"<h3>Business address</h3>" +
-'<p class="note">Customers see this on your page.</p>' +
-'<label for="cAddress">Business address</label>' +
-'<textarea id="cAddress" rows="2" placeholder="Shop number, street, area, city"></textarea>' +
-'<button type="submit" id="cBtn">Save address</button>' +
-'<p class="small-msg" id="cMsg"></p>';
-ownerBox.parentNode.insertBefore(form, ownerBox);
-
-const f = (id) => document.getElementById(id);
-f("cAddress").value = business.address || "";
+  const f = (id) => document.getElementById(id);
+  f("cAddress").value = business.address || "";
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = f("cMsg");
     msg.textContent = "";
 
-   
-
     const details = {
-    address: f("cAddress").value.trim() || null
+      address: f("cAddress").value.trim() || null
     };
 
     f("cBtn").disabled = true;
@@ -688,6 +618,7 @@ f("cAddress").value = business.address || "";
     msg.textContent = "Saved. Customers can now see this.";
   });
 }
+
 
  
 
