@@ -304,12 +304,29 @@ function setupBuying() {
 
     try {
       // The server works out the price and the 12% split, then starts the payment
-      const result = await callPayments({
-        action: "checkout",
-        business_id: business.id,
-        items: items,
-        return_url: new URL("order-complete.html", window.location.href).href
+      // Give up after 25 seconds instead of waiting forever
+      const timeout = new Promise((resolve, reject) => {
+        setTimeout(() => {
+          reject(new Error("This is taking too long. Check your network and try again."));
+        }, 25000);
       });
+
+      const result = await Promise.race([
+        callPayments({
+          action: "checkout",
+          business_id: business.id,
+          items: items,
+          return_url: new URL("order-complete.html", window.location.href).href
+        }),
+        timeout
+      ]);
+
+      // Backup link, in case the phone does not jump to Paystack by itself
+      payNote.textContent = "";
+      const link = document.createElement("a");
+      link.href = result.authorization_url;
+      link.textContent = "Tap here if Paystack does not open";
+      payNote.appendChild(link);
 
       // Go to Paystack's secure payment page
       window.location.href = result.authorization_url;
@@ -500,3 +517,4 @@ async function setupPayouts() {
     }
   });
 }
+
