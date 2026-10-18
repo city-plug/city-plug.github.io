@@ -76,7 +76,11 @@ async function loadMessages() {
     .eq("order_id", orderId)
     .order("created_at", { ascending: true });
 
-  if (error) return;
+  if (error) {
+    document.getElementById("chatStatus").textContent =
+      "Couldn't load messages: " + error.message;
+    return;
+  }
 
   const box = document.getElementById("messages");
   box.innerHTML = "";
@@ -146,7 +150,7 @@ document.getElementById("chatForm").addEventListener("submit", async (e) => {
     const msg = error.message || "";
     alert(msg.includes("no_links") || msg.includes("no_emails")
       ? "Links and email addresses aren't allowed."
-      : "Couldn't send. Try again.");
+      : "Couldn't send: " + msg);
     return;
   }
   input.value = "";
@@ -174,14 +178,14 @@ document.getElementById("picInput").addEventListener("change", async (e) => {
     .from("chat-images")
     .upload(path, file, { contentType: file.type });
   if (upErr) {
-    alert("Couldn't upload the picture.");
+    alert("Couldn't upload: " + (upErr.message || upErr));
     return;
   }
 
   const { error } = await db.from("messages")
     .insert({ order_id: orderId, sender_id: me.id, image_path: path });
   if (error) {
-    alert("Couldn't send the picture.");
+    alert("Couldn't send the picture: " + error.message);
     return;
   }
   loadMessages();
@@ -192,7 +196,7 @@ document.getElementById("receivedBtn").addEventListener("click", async () => {
 
   const { error } = await db.rpc("mark_order_received", { p_order: orderId });
   if (error) {
-    alert("Couldn't confirm. Try again.");
+    alert("Couldn't confirm: " + error.message);
     return;
   }
   chatOpen = false;
@@ -204,6 +208,8 @@ startChat().catch(function (err) {
   document.getElementById("chatStatus").textContent =
     "Error: " + (err.message || err);
 });
+
+
 
 
 
