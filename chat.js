@@ -49,6 +49,8 @@ async function startChat() {
 
   chatOpen = order.status === "paid" && !order.received_at;
   showHeader();
+  await loadMessages();
+  listenForMessages();
 }
 
 function showHeader() {
@@ -62,7 +64,84 @@ function showHeader() {
   document.getElementById("receivedBtn").hidden = !(chatOpen && isBuyer);
 }
 
+async function loadMessages() {
+  const { data, error } = await db
+    .from("messages")
+    .select("id, sender_id, body, image_path, created_at, read_at")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
+
+  if (error) return;
+
+  const box = document.getElementById("messages");
+  box.innerHTML = "";
+  data.forEach(addMessage);
+  box.scrollTop = box.scrollHeight;
+
+  const unread = data.some(m => m.sender_id !== me.id && !m.read_at);
+  if (unread) {
+    await db.from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("order_id", orderId)
+      .neq("sender_id", me.id)
+      .is("read_at", null);
+  }
+}
+
+function addMessage(m) {
+  const mine = m.sender_id === me.id;
+  const div = document.createElement("div");
+  div.className = "msg " + (mine ? "mine" : "theirs");
+
+  if (m.body) {
+    const p = document.createElement("p");
+    p.textContent = m.body;
+    div.appendChild(p);
+  }
+
+  const meta = document.createElement("small");
+  const time = new Date(m.created_at)
+    .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  meta.textContent = mine ? time + (m.read_at ? " ✓✓ Seen" : " ✓ Sent") : time;
+  div.appendChild(meta);
+
+  document.getElementById("messages").appendChild(div);
+}
+
+function listenForMessages() {
+  db.channel("order-" + orderId)
+    .on("postgres_changes",
+      { event: "*", schema: "public", table: "messages",
+        filter: "order_id=eq." + orderId },
+      () => loadMessages())
+    .subscribe();
+}
+
+document.getElementById("chatForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!chatOpen) return;
+
+  const input = document.getElementById("msgInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const { error } = await db.from("messages")
+    .insert({ order_id: orderId, sender_id: me.id, body: text });
+
+  if (error) {
+    const msg = error.message || "";
+    alert(msg.includes("no_links") || msg.includes("no_emails")
+      ? "Links and email addresses aren't allowed."
+      : "Couldn't send. Try again.");
+    return;
+  }
+  input.value = "";
+  loadMessages();
+});
+
 startChat();
+
+
 
 
 
