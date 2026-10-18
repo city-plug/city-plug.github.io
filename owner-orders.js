@@ -50,7 +50,7 @@ function makeRow(label, value, strong) {
   // Only paid orders. Row security means you can only ever see your own business's orders.
   const { data: orders, error } = await db
     .from("orders")
-    .select("reference, total_kobo, commission_kobo, paid_at, buyer_name, buyer_email, order_items(name, quantity, unit_price_kobo)")
+    .select("reference, total_kobo, commission_kobo, paid_at, buyer_name, buyer_email, delivery_phone, delivery_address, delivery_note, order_items(name, quantity, unit_price_kobo)")
     .eq("business_id", business.id)
     .eq("status", "paid")
     .order("paid_at", { ascending: false });
@@ -101,6 +101,22 @@ function makeRow(label, value, strong) {
 
     card.append(when, buyer);
 
+    // Where and how to deliver
+    if (o.delivery_phone || o.delivery_address) {
+      const del = document.createElement("div");
+      del.style.margin = "0 0 10px";
+      del.style.padding = "10px";
+      del.style.background = "#f4f5f7";
+      del.style.borderRadius = "8px";
+      del.style.fontSize = "14px";
+      del.style.whiteSpace = "pre-line";
+      let text = "Deliver to:\n" + (o.delivery_address || "");
+      if (o.delivery_phone) text += "\nPhone: " + o.delivery_phone;
+      if (o.delivery_note) text += "\nNote: " + o.delivery_note;
+      del.textContent = text;
+      card.appendChild(del);
+    }
+
     // What they bought
     (o.order_items || []).forEach((item) => {
       card.appendChild(
@@ -129,6 +145,7 @@ function makeRow(label, value, strong) {
     ordersBox.appendChild(card);
   });
 })();
+
 
 
 

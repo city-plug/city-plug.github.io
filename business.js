@@ -22,6 +22,7 @@ let session = null;   // the logged-in person (or null)
 let business = null;  // this page's business
 let isOwner = false;  // true only if the logged-in person owns this business
 let myRating = 0;     // the stars this person already gave
+let deliveryBox = null; // the delivery details form (customers only)
 let cart = {};        // what the customer has picked: product id -> { product, qty }
 
 init();
@@ -292,8 +293,46 @@ function setupBuying() {
     return;
   }
 
+  // Delivery details box (built here, so no change to business.html is needed)
+  deliveryBox = document.createElement("div");
+  deliveryBox.className = "owner-box";
+  deliveryBox.hidden = true;
+  deliveryBox.innerHTML =
+    "<h3>Delivery details</h3>" +
+    '<p class="note">The business uses these to deliver your order.</p>' +
+    '<label for="dPhone">Phone number</label>' +
+    '<input id="dPhone" type="tel" placeholder="08012345678">' +
+    '<label for="dAddress">Delivery address</label>' +
+    '<textarea id="dAddress" rows="3" placeholder="House number, street, area, city"></textarea>' +
+    '<label for="dNote">Note for the seller (optional)</label>' +
+    '<input id="dNote" type="text" placeholder="e.g. call me when you arrive">';
+  document.querySelector("main").appendChild(deliveryBox);
+
+  const dPhone = document.getElementById("dPhone");
+  const dAddress = document.getElementById("dAddress");
+  const dNote = document.getElementById("dNote");
+
+  // Remember the last details on this phone, so repeat buyers type less
+  try {
+    dPhone.value = localStorage.getItem("cp_phone") || "";
+    dAddress.value = localStorage.getItem("cp_address") || "";
+  } catch (e) {}
+
   payBtn.addEventListener("click", async () => {
     payNote.textContent = "";
+
+    // Delivery details are required before paying
+    const phone = dPhone.value.trim();
+    const address = dAddress.value.trim();
+    const note = dNote.value.trim();
+    if (session && phone.replace(/[^0-9]/g, "").length < 10) {
+      payNote.textContent = "Please enter a phone number the seller can call.";
+      return;
+    }
+    if (session && address.length < 8) {
+      payNote.textContent = "Please enter your delivery address.";
+      return;
+    }
 
     // Visitors who are not logged in must log in first
     if (!session) {
@@ -328,6 +367,30 @@ function setupBuying() {
         timeout
       ]);
 
+      // Save the delivery details on the new order BEFORE leaving for Paystack
+      const { data: pending, error: findErr } = await db
+        .from("orders")
+        .select("id")
+        .eq("buyer_id", session.user.id)
+        .eq("business_id", business.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (findErr || !pending || pending.length === 0) {
+        throw new Error("Could not save your delivery details. Please try again.");
+      }
+      const { error: saveErr } = await db
+        .from("orders")
+        .update({ delivery_phone: phone, delivery_address: address, delivery_note: note || null })
+        .eq("id", pending[0].id);
+      if (saveErr) {
+        throw new Error("Could not save your delivery details: " + saveErr.message);
+      }
+      try {
+        localStorage.setItem("cp_phone", phone);
+        localStorage.setItem("cp_address", address);
+      } catch (e) {}
+
       // Backup link, in case the phone does not jump to Paystack by itself
       payNote.textContent = "";
       const link = document.createElement("a");
@@ -351,6 +414,7 @@ function updatePayBar() {
 
   payTotal.textContent = "₦" + total.toLocaleString();
   payBar.hidden = isOwner || !business.payments_enabled || picked.length === 0;
+  if (deliveryBox) deliveryBox.hidden = payBar.hidden;
 }
 
 // ---------- Owner: add a product ----------
@@ -524,6 +588,7 @@ async function setupPayouts() {
     }
   });
 }
+
 
 
 
