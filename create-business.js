@@ -63,7 +63,8 @@ form.addEventListener("submit", async (e) => {
     name: document.getElementById("name").value.trim(),
     city: document.getElementById("city").value,
     category: document.getElementById("category").value,
-    description: document.getElementById("description").value.trim()
+    description: document.getElementById("description").value.trim(),
+    address: document.getElementById("address").value.trim()
   });
 
   if (error) {
