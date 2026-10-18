@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+</head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create your business</title>
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+  <div class="card">
+    <h1>Create your business page</h1>
+    <p class="sub" id="who">Checking your login...</p>
+
+    <form id="business-form">
+      <label for="name">Business name</label>
+      <input type="text" id="name" required><br>
+
+      <label for="city">City</label>
+      <select id="city" required></select><br>
+
+      <label for="category">Category</label>
+      <select id="category" required></select><br>
+
+      <label for="description">Short description</label><br>
+      <textarea id="description" rows="4" required></textarea><br>
+
+      <button type="submit" id="submit-btn">Create business page</button>
+      <div id="message"></div>
+    </form>
+
+    <button id="logout-btn" type="button">Log out</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="create-business.js"></script>
+</body>
+</html>
+
+<body>
+  
+</body>
+
+</html>

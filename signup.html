@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign up</title>
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+  <div class="card">
+    <h1>Create your account</h1>
+    <p class="sub">Sign up to create your business page.</p>
+
+    <form id="signup-form">
+      <label for="full-name">Full name</label>
+      <input type="text" id="full-name" required><br>
+
+      <label for="email">Email</label>
+      <input type="email" id="email" required><br>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" minlength="6" required><br>
+
+      <label for="confirm">Confirm password</label>
+      <input type="password" id="confirm" minlength="6" required><br>
+
+      <label for="role">I am signing up as</label>
+      <select id="role" required>
+        <option value="customer">A customer</option>
+        <option value="owner">A business owner</option>
+      </select><br>
+
+      <button type="submit" id="submit-btn">Sign up</button>
+      <div id="message"></div>
+    </form>
+
+    <p class="switch">Already have an account? <a href="login.html">Log in</a></p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="signup.js"></script>
+</body>
+</html>

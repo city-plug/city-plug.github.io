@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Business | City Plug</title>
+  <link rel="stylesheet" href="browse.css">
+</head>
+<body>
+  <header>
+    <h1>City Plug</h1>
+    <nav id="nav"></nav>
+  </header>
+
+  <main>
+    <a class="back" id="back" href="index.html">← All cities</a>
+    <p id="status"></p>
+
+    <!-- Business details and rating -->
+    <section id="bizSection" hidden>
+      <h2 class="title" id="bizName"></h2>
+      <div class="tag" id="bizTag"></div>
+      <p id="bizDesc"></p>
+
+      <div class="rating-box">
+        <div id="ratingSummary" class="rating-summary"></div>
+        <div id="stars" class="stars"></div>
+        <div id="rateMsg" class="small-msg"></div>
+      </div>
+    </section>
+
+    <!-- Only the owner of this business sees this box -->
+    <section id="ownerBox" class="owner-box" hidden>
+      <h3>Add a product</h3>
+      <form id="productForm">
+        <label for="pName">Product name</label>
+        <input type="text" id="pName" required>
+
+        <label for="pDesc">Description</label>
+        <textarea id="pDesc" rows="3"></textarea>
+
+        <label for="pPrice">Price (₦)</label>
+        <input type="text" id="pPrice" inputmode="decimal" placeholder="e.g. 400,000" required>
+
+        <label for="pImage">Picture (max 3MB)</label>
+        <input type="file" id="pImage" accept="image/*">
+
+        <button type="submit" id="pBtn">Add product</button>
+        <div id="pMsg" class="small-msg"></div>
+      </form>
+    </section>
+
+    <h3 class="section-title">Products</h3>
+    <p id="productsStatus"></p>
+    <div id="products"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="nav.js"></script>
+  <script src="business.js"></script>
+</body>
+</html>
+
