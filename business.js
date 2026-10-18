@@ -1,6 +1,6 @@
 // One page for every business: business.html?id=<business id>
-// Customers see the business, rate it, and view products.
-// The owner of THIS business also gets the "Add a product" box and delete buttons.
+// Customers see the business, rate it, view products and pay.
+// The owner of THIS business also gets: add products, delete products, and set up payouts.
 
 const params = new URLSearchParams(window.location.search);
 const businessId = params.get("id");
@@ -10,13 +10,19 @@ const bizSection = document.getElementById("bizSection");
 const starsBox = document.getElementById("stars");
 const rateMsg = document.getElementById("rateMsg");
 const ownerBox = document.getElementById("ownerBox");
+const payoutBox = document.getElementById("payoutBox");
 const productsBox = document.getElementById("products");
 const productsStatus = document.getElementById("productsStatus");
+const payBar = document.getElementById("payBar");
+const payTotal = document.getElementById("payTotal");
+const payBtn = document.getElementById("payBtn");
+const payNote = document.getElementById("payNote");
 
 let session = null;   // the logged-in person (or null)
 let business = null;  // this page's business
 let isOwner = false;  // true only if the logged-in person owns this business
 let myRating = 0;     // the stars this person already gave
+let cart = {};        // what the customer has picked: product id -> { product, qty }
 
 init();
 
@@ -32,7 +38,7 @@ async function init() {
 
   const { data, error } = await db
     .from("businesses")
-    .select("id, owner_id, name, city, category, description")
+    .select("id, owner_id, name, city, category, description, payments_enabled")
     .eq("id", businessId)
     .maybeSingle();
 
@@ -51,6 +57,9 @@ async function init() {
   if (isOwner) {
     ownerBox.hidden = false;
     setupProductForm();
+    setupPayouts();
+  } else {
+    setupBuying();
   }
 }
 
@@ -148,6 +157,8 @@ async function loadProducts() {
   }
 
   productsBox.innerHTML = "";
+  cart = {};
+  updatePayBar();
 
   if (data.length === 0) {
     productsStatus.textContent = isOwner
@@ -190,33 +201,45 @@ function makeCard(p) {
   price.className = "price";
   price.textContent = "₦" + Number(p.price).toLocaleString();
 
-  // Quantity stepper. Buying comes in a later step, so this only counts for now.
-  const stepper = document.createElement("div");
-  stepper.className = "stepper";
+  row.appendChild(price);
 
-  const minus = document.createElement("button");
-  minus.type = "button";
-  minus.textContent = "−";
+  // Owners do not buy from themselves, so only customers get the stepper
+  if (!isOwner) {
+    const stepper = document.createElement("div");
+    stepper.className = "stepper";
 
-  const qty = document.createElement("span");
-  qty.textContent = "0";
+    const minus = document.createElement("button");
+    minus.type = "button";
+    minus.textContent = "−";
 
-  const plus = document.createElement("button");
-  plus.type = "button";
-  plus.textContent = "+";
+    const qty = document.createElement("span");
+    qty.textContent = "0";
 
-  let count = 0;
-  minus.addEventListener("click", () => {
-    if (count > 0) count--;
-    qty.textContent = count;
-  });
-  plus.addEventListener("click", () => {
-    count++;
-    qty.textContent = count;
-  });
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.textContent = "+";
 
-  stepper.append(minus, qty, plus);
-  row.append(price, stepper);
+    let count = 0;
+    const change = (n) => {
+      count = Math.max(0, Math.min(50, count + n));
+      qty.textContent = count;
+
+      // Keep the basket up to date
+      if (count === 0) {
+        delete cart[p.id];
+      } else {
+        cart[p.id] = { product: p, qty: count };
+      }
+      updatePayBar();
+    };
+
+    minus.addEventListener("click", () => change(-1));
+    plus.addEventListener("click", () => change(1));
+
+    stepper.append(minus, qty, plus);
+    row.appendChild(stepper);
+  }
+
   info.append(name, desc, row);
   card.appendChild(info);
 
@@ -242,6 +265,57 @@ async function deleteProduct(id) {
     return;
   }
   loadProducts();
+}
+
+// ---------- Customer: basket and paying ----------
+function setupBuying() {
+  if (!business.payments_enabled) {
+    payNote.textContent = "Online payment is not available for this business yet.";
+    return;
+  }
+
+  payBtn.addEventListener("click", async () => {
+    payNote.textContent = "";
+
+    // Visitors who are not logged in must log in first
+    if (!session) {
+      payNote.innerHTML = 'Please <a href="login.html">log in</a> to pay.';
+      return;
+    }
+
+    const items = Object.values(cart).map((c) => ({
+      product_id: c.product.id,
+      quantity: c.qty
+    }));
+
+    payBtn.disabled = true;
+    payBtn.textContent = "Please wait...";
+
+    try {
+      // The server works out the price and the 12% split, then starts the payment
+      const result = await callPayments({
+        action: "checkout",
+        business_id: business.id,
+        items: items,
+        return_url: new URL("order-complete.html", window.location.href).href
+      });
+
+      // Go to Paystack's secure payment page
+      window.location.href = result.authorization_url;
+    } catch (e) {
+      payBtn.disabled = false;
+      payBtn.textContent = "Pay now";
+      payNote.textContent = e.message;
+    }
+  });
+}
+
+function updatePayBar() {
+  const picked = Object.values(cart);
+  const total = picked.reduce((sum, c) => sum + Number(c.product.price) * c.qty, 0);
+
+  payTotal.textContent = "₦" + total.toLocaleString();
+  payBar.hidden = isOwner || !business.payments_enabled || picked.length === 0;
 }
 
 // ---------- Owner: add a product ----------
@@ -314,5 +388,101 @@ function setupProductForm() {
     form.reset();
     msg.textContent = "Product added.";
     loadProducts();
+  });
+}
+
+// ---------- Owner: set up where the money is paid ----------
+async function setupPayouts() {
+  payoutBox.hidden = false;
+
+  const payoutForm = document.getElementById("payoutForm");
+  const payoutDone = document.getElementById("payoutDone");
+  const bankSelect = document.getElementById("bankSelect");
+  const accountNumber = document.getElementById("accountNumber");
+  const accountName = document.getElementById("accountName");
+  const payoutMsg = document.getElementById("payoutMsg");
+  const payoutBtn = document.getElementById("payoutBtn");
+
+  // Already set up? Then just show a summary.
+  const { data: payout } = await db
+    .from("business_payouts")
+    .select("account_name, account_last4")
+    .eq("business_id", business.id)
+    .maybeSingle();
+
+  if (payout) {
+    payoutDone.hidden = false;
+    payoutDone.textContent =
+      "Payouts are set up: " + (payout.account_name || "Bank account") +
+      " (ending " + payout.account_last4 + "). You can now receive payments.";
+    payoutForm.hidden = true;
+    return;
+  }
+
+  // Fill the bank list
+  try {
+    const result = await callPayments({ action: "banks" });
+    bankSelect.innerHTML = '<option value="">Choose your bank</option>';
+    result.banks.forEach((b) => {
+      const option = document.createElement("option");
+      option.value = b.code;
+      option.textContent = b.name;
+      bankSelect.appendChild(option);
+    });
+  } catch (e) {
+    bankSelect.innerHTML = '<option value="">Could not load banks</option>';
+    payoutMsg.textContent = e.message;
+  }
+
+  // Once the bank and the 10 digits are in, show whose account it is
+  let resolvedName = "";
+
+  async function checkAccount() {
+    resolvedName = "";
+    accountName.textContent = "";
+
+    const number = accountNumber.value.trim();
+    if (number.length !== 10 || !bankSelect.value) return;
+
+    accountName.textContent = "Checking account...";
+    try {
+      const r = await callPayments({
+        action: "resolve",
+        bank_code: bankSelect.value,
+        account_number: number
+      });
+      resolvedName = r.account_name;
+      accountName.textContent = "Account name: " + resolvedName;
+    } catch (e) {
+      accountName.textContent = "Could not confirm the account name: " + e.message;
+    }
+  }
+
+  bankSelect.addEventListener("change", checkAccount);
+  accountNumber.addEventListener("input", checkAccount);
+
+  payoutForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    payoutMsg.textContent = "";
+
+    // Last check: make sure the money goes to the right person
+    if (resolvedName && !confirm("Pay out to " + resolvedName + "?")) return;
+
+    payoutBtn.disabled = true;
+    payoutBtn.textContent = "Saving...";
+
+    try {
+      await callPayments({
+        action: "subaccount",
+        bank_code: bankSelect.value,
+        account_number: accountNumber.value.trim(),
+        account_name: resolvedName
+      });
+      window.location.reload();
+    } catch (err) {
+      payoutBtn.disabled = false;
+      payoutBtn.textContent = "Save payout account";
+      payoutMsg.textContent = err.message;
+    }
   });
 }

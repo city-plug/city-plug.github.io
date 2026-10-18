@@ -50,15 +50,47 @@
       </form>
     </section>
 
+    <!-- Only the owner sees this: where their money is paid -->
+    <section id="payoutBox" class="owner-box" hidden>
+      <h3>Get paid</h3>
+      <p class="note">City Plug keeps 12% of each sale. The rest is paid straight to your bank account.</p>
+      <div id="payoutDone" class="note" hidden></div>
+      <form id="payoutForm">
+        <label for="bankSelect">Bank</label>
+        <select id="bankSelect" required>
+          <option value="">Loading banks...</option>
+        </select>
+
+        <label for="accountNumber">Account number</label>
+        <input type="text" id="accountNumber" inputmode="numeric" maxlength="10" required>
+        <div id="accountName" class="small-msg"></div>
+
+        <button type="submit" id="payoutBtn">Save payout account</button>
+        <div id="payoutMsg" class="small-msg"></div>
+      </form>
+    </section>
+
     <h3 class="section-title">Products</h3>
     <p id="productsStatus"></p>
     <div id="products"></div>
+    <p id="payNote" class="small-msg"></p>
   </main>
+
+  <!-- Appears when a customer adds items -->
+  <div id="payBar" class="pay-bar" hidden>
+    <div>
+      <div class="pay-label">Total</div>
+      <div id="payTotal" class="pay-total">₦0</div>
+    </div>
+    <button type="button" id="payBtn">Pay now</button>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
+  <script src="pay-helper.js"></script>
   <script src="nav.js"></script>
   <script src="business.js"></script>
 </body>
 </html>
+
 
