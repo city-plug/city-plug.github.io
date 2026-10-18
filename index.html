@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+  // If nobody is logged in, go to the signup page first
+  try {
+    var loggedIn = localStorage.getItem("sb-ctqsufsamvayeccndmtm-auth-token");
+    if (!loggedIn) window.location.replace("signup.html");
+  } catch (e) {
+    window.location.replace("signup.html");
+  }
+</script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>City Plug</title>
