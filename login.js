@@ -1,10 +1,12 @@
 const form = document.getElementById("login-form");
 const message = document.getElementById("message");
 const button = document.getElementById("submit-btn");
+const resendBtn = document.getElementById("resend-btn");
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   message.textContent = "";
+  resendBtn.style.display = "none";
 
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
@@ -12,33 +14,47 @@ form.addEventListener("submit", async (e) => {
   button.disabled = true;
   button.textContent = "Logging in...";
 
-  // Ask Supabase to check the email and password
   const { data, error } = await db.auth.signInWithPassword({ email, password });
 
   if (error) {
     button.disabled = false;
     button.textContent = "Log in";
-    message.textContent = error.message;
+    if (error.code === "email_not_confirmed" || /not confirmed/i.test(error.message)) {
+      message.textContent = "Please confirm your email first. Check your inbox and spam.";
+      resendBtn.style.display = "block";
+    } else {
+      message.textContent = error.message;
+    }
     return;
   }
 
-  // Logged in. Does this person own a business?
   const { data: business } = await db
     .from("businesses")
     .select("id")
     .eq("owner_id", data.user.id)
     .maybeSingle();
 
-  const role = data.user.user_metadata.role; // "customer" or "owner"
+  const role = data.user.user_metadata.role;
 
   if (business) {
-    // Owner with a page: go manage it (my-business.html is still to be built)
     window.location.href = "my-business.html";
   } else if (role === "owner") {
-    // Owner who hasn't created their page yet
     window.location.href = "create-business.html";
   } else {
-    // Customer: browse everything. Rating and buying come later.
     window.location.href = "index.html";
   }
 });
+
+resendBtn.addEventListener("click", async () => {
+  const email = document.getElementById("email").value.trim();
+  resendBtn.disabled = true;
+  const { error } = await db.auth.resend({
+    type: "signup",
+    email: email,
+    options: { emailRedirectTo: "https://city-plug.github.io/login.html" }
+  });
+  message.textContent = error ? error.message : "Confirmation email sent. Check your inbox.";
+  setTimeout(() => { resendBtn.disabled = false; }, 30000);
+});
+
+
