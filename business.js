@@ -37,7 +37,8 @@ async function init() {
   const { data: s } = await db.auth.getSession();
   session = s.session;
 
-  const { data, error } = await db
+  .select("id, owner_id, name, city, category, description, payments_enabled, address, verified")
+
     .from("businesses")
     .select("id, owner_id, name, city, category, description, payments_enabled, address")
     .eq("id", businessId)
@@ -79,6 +80,13 @@ document.getElementById("msgWrap").hidden = false;
 function showBusiness() {
   document.title = business.name + " | City Plug";
   document.getElementById("bizName").textContent = business.name;
+  if (business.verified) {
+  const badge = document.createElement("span");
+  badge.className = "vbadge";
+  badge.textContent = "\u2713 Verified";
+  document.getElementById("bizName").appendChild(badge);
+}
+
   document.getElementById("bizTag").textContent = business.city + " · " + business.category;
   document.getElementById("bizDesc").textContent = business.description || "";
 
