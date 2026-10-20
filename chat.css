@@ -93,20 +93,3 @@ body {
   color: #6b7385;
   background: #fff;
 }
-.gif {
-  display: block;
-  width: 100%;
-  max-width: 640px;
-  height: auto;
-  margin: 24px auto;
-  border-radius: 16px;
-  object-fit: cover;
-}
-
-@media (min-width: 768px) {
-  .gif { max-width: 720px; border-radius: 20px; }
-}
-
-@media (min-width: 1200px) {
-  .gif { max-width: 900px; }
-}
