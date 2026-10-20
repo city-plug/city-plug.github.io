@@ -10,3 +10,6 @@ const CATEGORIES = ["Food", "Fashion", "Shoes", "Gadgets", "Perfumes", "Hygiene"
 
 // "db" is the connection every other file uses.
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function verifiedBadge(b) {
+  return b && b.verified ? '<span class="vbadge">&#10003; Verified</span>' : "";
+}
