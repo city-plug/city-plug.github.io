@@ -67,7 +67,14 @@ async function showBusinesses() {
     card.href = "business.html?id=" + b.id;
 
     const name = document.createElement("h2");
-    name.textContent = b.name;
+  name.textContent = b.name;
+if (b.verified) {
+  const badge = document.createElement("span");
+  badge.className = "vbadge";
+  badge.textContent = "\u2713 Verified";
+  name.appendChild(badge);
+}
+
 
     const desc = document.createElement("p");
     desc.textContent = b.description;
