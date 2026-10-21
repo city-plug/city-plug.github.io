@@ -1,5 +1,6 @@
 // The owner's list of orders: who bought what, what the business receives,
-// shipping, and a private chat with each customer.
+// shipping, a private chat with each customer, and a "Report an issue"
+// complaint thread per order that never closes.
 
 const statusEl = document.getElementById("status");
 const summaryBox = document.getElementById("summary");
@@ -11,6 +12,11 @@ const LINK_PATTERN = /(https?:|www\.|\.(com|net|org|ng|io|co|me|app|xyz|info|biz
 
 let me = null;          // the logged-in owner's user id
 let unreadByOrder = {}; // unread customer messages per order
+
+// Complaint state
+let myBusinessId = null;
+let myCity = null;
+let complaintByOrder = {};
 
 // Money is stored in kobo (100 kobo = 1 naira)
 function naira(kobo) {
@@ -62,6 +68,17 @@ function makeRow(label, value, strong) {
     return;
   }
 
+  myBusinessId = business.id;
+
+  // The business city, used when filing a complaint. Kept separate so the page
+  // still works even if your businesses table names this column differently.
+  const { data: cityRow, error: cityError } = await db
+    .from("businesses")
+    .select("city")
+    .eq("id", business.id)
+    .maybeSingle();
+  if (!cityError && cityRow) myCity = cityRow.city;
+
   const back = document.getElementById("back");
   back.href = "business.html?id=" + business.id;
   back.textContent = "← " + business.name;
@@ -96,6 +113,15 @@ function makeRow(label, value, strong) {
   (unread || []).forEach((m) => {
     unreadByOrder[m.order_id] = (unreadByOrder[m.order_id] || 0) + 1;
   });
+
+  // Which orders already have a complaint filed by this owner
+  complaintByOrder = {};
+  const { data: complaints } = await db
+    .from("complaints")
+    .select("id, order_id, message, status, created_at")
+    .in("order_id", orders.map((o) => o.id))
+    .eq("filed_by_user_id", me);
+  (complaints || []).forEach((c) => { complaintByOrder[c.order_id] = c; });
 
   // Totals at the top
   let totalSales = 0;
@@ -240,6 +266,18 @@ function makeRow(label, value, strong) {
     }
 
     card.appendChild(actions);
+
+    // Report an issue / View complaint (always available, whatever the order status)
+    const hasComplaint = !!complaintByOrder[o.id];
+    const reportBtn = document.createElement("button");
+    reportBtn.type = "button";
+    reportBtn.textContent = hasComplaint ? "View complaint" : "Report an issue";
+    reportBtn.style.cssText =
+      "display:block;width:100%;margin-top:8px;padding:10px;border:1px solid #d8d8d8;border-radius:10px;background:#fff;font:inherit;font-size:14px;font-weight:700;cursor:pointer;color:" +
+      (hasComplaint ? "#0b4a9e" : "#9b1c1c") + ";";
+    reportBtn.addEventListener("click", () => openComplaint(o));
+    card.appendChild(reportBtn);
+
     ordersBox.appendChild(card);
   });
 })();
@@ -349,170 +387,8 @@ function openChat(o) {
   document.body.style.overflow = "hidden";
 
   refreshChat(true);
-  if (chatIsOpen) chatTimer = setInterval(() => refreshChat(false), 5000);
-}
+  if (chatIs
 
-function closeChat() {
-  clearInterval(chatTimer);
-  chatTimer = null;
-  chatOrder = null;
-  chatBox.classList.remove("show");
-  document.body.style.overflow = "";
-  window.location.reload();
-}
-
-async function refreshChat(first) {
-  if (!chatOrder) return;
-  const orderId = chatOrder.id;
-
-  const { data, error } = await db
-    .from("messages")
-    .select("id, sender_id, body, image_path, created_at, read_at")
-    .eq("order_id", orderId)
-    .order("created_at", { ascending: true });
-
-  if (!chatOrder || chatOrder.id !== orderId) return;
-
-  if (error) {
-    chatErr.textContent = "Could not load messages: " + error.message;
-    return;
-  }
-  chatErr.textContent = "";
-
-  // Read receipts: mark the customer's messages as read now that we have seen them
-  if (data.some((m) => m.sender_id !== me && !m.read_at)) {
-    await db
-      .from("messages")
-      .update({ read_at: new Date().toISOString() })
-      .eq("order_id", orderId)
-      .neq("sender_id", me)
-      .is("read_at", null);
-  }
-
-  const signature = data.map((m) => m.id + ":" + (m.read_at ? 1 : 0)).join("|");
-  if (!first && signature === lastSignature) return;
-  lastSignature = signature;
-
-  await drawMessages(data, first);
-}
-
-async function imageUrl(path) {
-  if (signedUrls[path]) return signedUrls[path];
-  const { data } = await db.storage.from(CHAT_BUCKET).createSignedUrl(path, 3600);
-  if (data && data.signedUrl) signedUrls[path] = data.signedUrl;
-  return signedUrls[path] || null;
-}
-
-async function drawMessages(list, first) {
-  const nearBottom = chatMsgs.scrollHeight - chatMsgs.scrollTop - chatMsgs.clientHeight < 80;
-  const frag = document.createDocumentFragment();
-
-  if (list.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "oc-empty";
-    empty.textContent = chatIsOpen
-      ? "No messages yet. Say hello to your customer."
-      : "There are no messages for this order.";
-    frag.appendChild(empty);
-  }
-
-  for (const m of list) {
-    const mine = m.sender_id === me;
-    const bubble = document.createElement("div");
-    bubble.className = "oc-msg " + (mine ? "me" : "them");
-
-    if (m.image_path) {
-      const url = await imageUrl(m.image_path);
-      if (url) {
-        const img = document.createElement("img");
-        img.src = url;
-        img.alt = "Picture";
-        bubble.appendChild(img);
-      }
-    }
-
-    if (m.body) {
-      const text = document.createElement("span");
-      text.textContent = m.body;
-      bubble.appendChild(text);
-    }
-
-    const meta = document.createElement("small");
-    meta.textContent = whenText(m.created_at) + (mine ? (m.read_at ? " · Seen" : " · Sent") : "");
-    bubble.appendChild(meta);
-
-    frag.appendChild(bubble);
-  }
-
-  chatMsgs.innerHTML = "";
-  chatMsgs.appendChild(frag);
-
-  if (first || nearBottom) chatMsgs.scrollTop = chatMsgs.scrollHeight;
-}
-
-async function sendMessage(e) {
-  e.preventDefault();
-  if (!chatOrder || !chatIsOpen) return;
-
-  chatErr.textContent = "";
-  const text = chatText.value.trim();
-  const file = chatPhoto.files[0];
-
-  if (!text && !file) return;
-
-  if (text.length > 1000) {
-    chatErr.textContent = "That message is too long.";
-    return;
-  }
-  if (LINK_PATTERN.test(text)) {
-    chatErr.textContent = "Links are not allowed in chat.";
-    return;
-  }
-  if (file && !file.type.startsWith("image/")) {
-    chatErr.textContent = "Only pictures can be sent.";
-    return;
-  }
-  if (file && file.size > MAX_IMAGE_BYTES) {
-    chatErr.textContent = "That picture is too big. Please use one under 3MB.";
-    return;
-  }
-
-  chatSend.disabled = true;
-  chatSend.textContent = "...";
-
-  let path = null;
-  if (file) {
-    const ext = ({ "image/png": "png", "image/webp": "webp", "image/gif": "gif" })[file.type] || "jpg";
-    path = chatOrder.id + "/" + Date.now() + "." + ext;
-
-    const { error: uploadError } = await db.storage.from(CHAT_BUCKET).upload(path, file);
-    if (uploadError) {
-      chatSend.disabled = false;
-      chatSend.textContent = "Send";
-      chatErr.textContent = "Picture upload failed: " + uploadError.message;
-      return;
-    }
-  }
-
-  const { error } = await db.from("messages").insert({
-    order_id: chatOrder.id,
-    sender_id: me,
-    body: text,
-    image_path: path
-  });
-
-  chatSend.disabled = false;
-  chatSend.textContent = "Send";
-
-  if (error) {
-    chatErr.textContent = "Could not send: " + error.message;
-    return;
-  }
-
-  chatText.value = "";
-  clearPhoto();
-  refreshChat(true);
-}
 
 
 
