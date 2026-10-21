@@ -37,10 +37,9 @@ async function init() {
   const { data: s } = await db.auth.getSession();
   session = s.session;
 
-  .select("id, owner_id, name, city, category, description, payments_enabled, address, verified")
-
+  const { data, error } = await db
     .from("businesses")
-    .select("id, owner_id, name, city, category, description, payments_enabled, address")
+    .select("id, owner_id, name, city, category, description, payments_enabled, address, verified")
     .eq("id", businessId)
     .maybeSingle();
 
@@ -70,7 +69,7 @@ async function init() {
     setupPayouts();
   } else {
     document.getElementById("msgLink").href = "chat.html?business=" + business.id;
-document.getElementById("msgWrap").hidden = false;
+    document.getElementById("msgWrap").hidden = false;
 
     setupBuying();
   }
@@ -81,11 +80,11 @@ function showBusiness() {
   document.title = business.name + " | City Plug";
   document.getElementById("bizName").textContent = business.name;
   if (business.verified) {
-  const badge = document.createElement("span");
-  badge.className = "vbadge";
-  badge.textContent = "\u2713 Verified";
-  document.getElementById("bizName").appendChild(badge);
-}
+    const badge = document.createElement("span");
+    badge.className = "vbadge";
+    badge.textContent = "\u2713 Verified";
+    document.getElementById("bizName").appendChild(badge);
+  }
 
   document.getElementById("bizTag").textContent = business.city + " · " + business.category;
   document.getElementById("bizDesc").textContent = business.description || "";
@@ -629,11 +628,3 @@ function setupContactForm() {
     msg.textContent = "Saved. Customers can now see this.";
   });
 }
-
-
- 
-
-
-
-
-
