@@ -15,7 +15,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>City Plug</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="browse.css">
+  <link rel="stylesheet" href="home.css">
   <link rel="icon" href="images/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32.png">
 <link rel="apple-touch-icon" href="images/apple-icon.png">
@@ -26,23 +29,33 @@
 <meta name="mobile-web-app-capable" content="yes">
 
 </head>
-<body>
+<body class="home">
+
+  <!-- Photo background (set in home.css) -->
+  <div class="sky" aria-hidden="true"><div class="sky-photo"></div></div>
 
   <header>
     <h1>City Plug</h1>
     <nav id="nav"></nav>
   </header>
-  <img  class="gif" src="images/box.gif" alt="city plug animation" loading="lazy">
+
+  <section class="hero">
+    <h2>Everything in your city, one tap away</h2>
+    <p>Shop local businesses and get your order delivered.</p>
+  </section>
+
+  <img class="gif" src="images/box.gif" alt="city plug animation" loading="lazy">
   <main>
     <h2 class="title">Choose your city</h2>
     <div class="tiles" id="cities"></div>
   </main>
-  <img class="gif" src="images/cart.gif" alt="city plug animation"loading="lazy">
+  <img class="gif" src="images/cart.gif" alt="city plug animation" loading="lazy">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="nav.js"></script>
   <script src="index.js"></script>
-  
+
 </body>
 </html>
+

@@ -1,0 +1,173 @@
+/* Home page only. Every rule starts with body.home so other pages are untouched. */
+
+body.home {
+  background: #2a2f55;
+  min-height: 100vh;
+}
+
+/* ---------- Photo background ---------- */
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #2a2f55;
+}
+
+/* Phones and portrait tablets: the photo fills the screen, with a very slow zoom */
+.sky::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("images/lagos-bg.jpg") center 70% / cover no-repeat;
+  transform-origin: 50% 70%;
+  animation: slowzoom 40s ease-in-out infinite alternate;
+}
+
+/* The sharp centred photo is only used on wide screens */
+.sky-photo { display: none; }
+
+/* A soft dark tint so white text stays easy to read */
+.sky::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(12, 22, 58, 0.55) 0%, rgba(12, 22, 58, 0.15) 45%, rgba(12, 22, 58, 0.35) 100%);
+}
+
+@keyframes slowzoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.1); }
+}
+
+/* PCs and landscape tablets: blurred copy fills the sides, sharp photo in the middle */
+@media (min-aspect-ratio: 1/1) {
+  .sky::before {
+    inset: -40px;
+    background-position: center;
+    filter: blur(26px);
+  }
+  .sky-photo {
+    display: block;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: calc(100vh * 0.667);
+    max-width: 100%;
+    transform: translateX(-50%);
+    background: url("images/lagos-bg.jpg") center / cover no-repeat;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%);
+  }
+}
+
+/* ---------- Header ---------- */
+body.home header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.15);
+}
+body.home header h1 {
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+/* ---------- Hero text ---------- */
+.hero {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 28px 16px 0;
+  color: #fff;
+  animation: rise 0.7s ease both;
+}
+.hero h2 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 800;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+.hero p {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.95;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- City cards ---------- */
+body.home main h2.title {
+  color: #fff;
+  font-size: 22px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+body.home .tile {
+  background: rgba(255, 255, 255, 0.88);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-top: 5px solid #ff8f6b;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  animation: rise 0.6s ease both;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+body.home .tile small { font-weight: 500; }
+
+body.home .tile:nth-child(1) { border-top-color: #ff8f6b; animation-delay: 0.10s; }
+body.home .tile:nth-child(2) { border-top-color: #4f8cff; animation-delay: 0.20s; }
+body.home .tile:nth-child(3) { border-top-color: #2fbf71; animation-delay: 0.30s; }
+body.home .tile:nth-child(4) { border-top-color: #a35bff; animation-delay: 0.40s; }
+body.home .tile:nth-child(n+5) { animation-delay: 0.5s; }
+
+body.home .tile:hover,
+body.home .tile:active {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- GIFs ---------- */
+body.home .gif {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+  animation: rise 0.8s ease both;
+}
+
+/* ---------- Small phones ---------- */
+@media (max-width: 360px) {
+  .hero h2 { font-size: 25px; }
+  body.home .tile { font-size: 16px; padding: 18px 8px; }
+}
+
+/* ---------- Tablets ---------- */
+@media (min-width: 768px) {
+  body.home main,
+  .hero { max-width: 760px; }
+  .hero { padding-top: 44px; }
+  .hero h2 { font-size: 42px; }
+  .hero p { font-size: 18px; }
+  body.home main h2.title { font-size: 26px; }
+  body.home .tile { padding: 30px 14px; font-size: 19px; }
+}
+
+/* ---------- PCs and wide screens ---------- */
+@media (min-width: 1000px) {
+  body.home main,
+  .hero { max-width: 960px; }
+  body.home .tiles { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+}
+
+/* People who turn off motion on their phone get a still page */
+@media (prefers-reduced-motion: reduce) {
+  .sky::before, .hero, body.home .tile, body.home .gif { animation: none; }
+}
