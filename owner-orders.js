@@ -789,7 +789,7 @@ async function submitComplaint(e) {
   if (error) {
     cpErr.textContent = "Could not send: " + error.message;
     return;
-  }
+  } 
 
   cpText.value = "";
   refreshComplaint(true);
