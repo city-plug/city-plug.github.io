@@ -1,5 +1,6 @@
 // My orders: a logged-in customer sees the orders they have paid for,
-// confirms delivery, and chats with the business about that order.
+// confirms delivery, chats with the business about that order,
+// and can report an issue (complaint) that never closes.
 
 const CHAT_BUCKET = "chat-images";
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -21,16 +22,34 @@ const chatPhoto = document.getElementById("chatPhoto");
 const chatSend = document.getElementById("chatSend");
 const photoName = document.getElementById("photoName");
 
+// Complaint panel
+const cpBox = document.getElementById("complaint");
+const cpTitle = document.getElementById("cpTitle");
+const cpSub = document.getElementById("cpSub");
+const cpClose = document.getElementById("cpClose");
+const cpIntro = document.getElementById("cpIntro");
+const cpMsgs = document.getElementById("cpMsgs");
+const cpErr = document.getElementById("cpErr");
+const cpForm = document.getElementById("cpForm");
+const cpText = document.getElementById("cpText");
+const cpSend = document.getElementById("cpSend");
+
 let session = null;
 let orders = [];
 let businessNames = {};
+let businessCities = {};
 let unreadByOrder = {};
+let complaintByOrder = {};
 
 let chatOrder = null;
 let chatIsOpen = false;
 let chatTimer = null;
 let lastSignature = "";
 const signedUrls = {};
+
+let cpOrder = null;
+let cpTimer = null;
+let cpSignature = "";
 
 init();
 
@@ -105,6 +124,17 @@ async function loadOrders() {
   businessNames = {};
   (biz || []).forEach((b) => { businessNames[b.id] = b.name; });
 
+  // Business cities (used when filing a complaint). Kept separate so the
+  // page still works even if your businesses table names this column differently.
+  businessCities = {};
+  const { data: cityRows, error: cityError } = await db
+    .from("businesses")
+    .select("id, city")
+    .in("id", bizIds);
+  if (!cityError) {
+    (cityRows || []).forEach((b) => { businessCities[b.id] = b.city; });
+  }
+
   // Unread message counts (messages from the business that this customer has not read)
   unreadByOrder = {};
   const { data: unread } = await db
@@ -116,6 +146,15 @@ async function loadOrders() {
   (unread || []).forEach((m) => {
     unreadByOrder[m.order_id] = (unreadByOrder[m.order_id] || 0) + 1;
   });
+
+  // Which of these orders already have a complaint
+  complaintByOrder = {};
+  const { data: complaints } = await db
+    .from("complaints")
+    .select("id, order_id, message, status, created_at")
+    .in("order_id", orders.map((o) => o.id))
+    .eq("filed_by_user_id", session.user.id);
+  (complaints || []).forEach((c) => { complaintByOrder[c.order_id] = c; });
 
   renderOrders();
 }
@@ -232,6 +271,16 @@ function makeCard(o) {
   }
 
   card.appendChild(actions);
+
+  // Report an issue / View complaint (always available, whatever the order status)
+  const reportBtn = document.createElement("button");
+  reportBtn.type = "button";
+  const hasComplaint = !!complaintByOrder[o.id];
+  reportBtn.className = "btn-report" + (hasComplaint ? " has" : "");
+  reportBtn.textContent = hasComplaint ? "View complaint" : "Report an issue";
+  reportBtn.addEventListener("click", () => openComplaint(o));
+  card.appendChild(reportBtn);
+
   return card;
 }
 
@@ -443,3 +492,193 @@ chatForm.addEventListener("submit", async (e) => {
   clearPhoto();
   refreshChat(true);
 });
+
+// ---------- Complaints (Report an issue) ----------
+// A complaint is tied to one order and never becomes read-only,
+// even after the order is received or cancelled.
+
+function openComplaint(o) {
+  cpOrder = o;
+  cpSignature = "";
+
+  cpTitle.textContent = businessNames[o.business_id] || "Business";
+  cpSub.textContent = "Order #" + (o.reference || o.id).toString().slice(-6).toUpperCase();
+  cpMsgs.innerHTML = "";
+  cpErr.textContent = "";
+  cpText.value = "";
+
+  const existing = complaintByOrder[o.id];
+  cpIntro.style.display = existing ? "none" : "block";
+  cpText.placeholder = existing ? "Write a reply..." : "Describe the problem...";
+  cpSend.textContent = existing ? "Send" : "Submit";
+
+  cpBox.classList.add("show");
+  document.body.style.overflow = "hidden";
+
+  if (existing) {
+    refreshComplaint(true);
+    cpTimer = setInterval(() => refreshComplaint(false), 5000);
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "No complaint yet for this order.";
+    cpMsgs.appendChild(empty);
+  }
+}
+
+function closeComplaint() {
+  clearInterval(cpTimer);
+  cpTimer = null;
+  cpOrder = null;
+  cpBox.classList.remove("show");
+  document.body.style.overflow = chatBox.classList.contains("show") ? "hidden" : "";
+  loadOrders();
+}
+
+cpClose.addEventListener("click", closeComplaint);
+
+async function refreshComplaint(first) {
+  if (!cpOrder) return;
+  const orderId = cpOrder.id;
+  const complaint = complaintByOrder[orderId];
+  if (!complaint) return;
+
+  const { data, error } = await db
+    .from("complaint_messages")
+    .select("id, sender, message, created_at")
+    .eq("complaint_id", complaint.id)
+    .order("created_at", { ascending: true });
+
+  if (!cpOrder || cpOrder.id !== orderId) return;
+
+  if (error) {
+    cpErr.textContent = "Could not load replies: " + error.message;
+    return;
+  }
+  cpErr.textContent = "";
+
+  const signature = data.map((m) => m.id).join("|");
+  if (!first && signature === cpSignature) return;
+  cpSignature = signature;
+
+  drawComplaint(complaint, data, first);
+}
+
+function drawComplaint(complaint, replies, first) {
+  const nearBottom = cpMsgs.scrollHeight - cpMsgs.scrollTop - cpMsgs.clientHeight < 80;
+  const frag = document.createDocumentFragment();
+
+  // The original complaint is the first bubble (always from this customer)
+  const original = document.createElement("div");
+  original.className = "msg me";
+  const originalText = document.createElement("span");
+  originalText.textContent = complaint.message;
+  const originalMeta = document.createElement("small");
+  originalMeta.textContent = when(complaint.created_at);
+  original.append(originalText, originalMeta);
+  frag.appendChild(original);
+
+  // Then every reply, oldest first
+  replies.forEach((m) => {
+    const fromAdmin = m.sender === "admin";
+    const bubble = document.createElement("div");
+    bubble.className = "msg " + (fromAdmin ? "them" : "me");
+
+    if (fromAdmin) {
+      const who = document.createElement("span");
+      who.className = "who";
+      who.textContent = "City Plug team";
+      bubble.appendChild(who);
+    }
+
+    const text = document.createElement("span");
+    text.textContent = m.message;
+    bubble.appendChild(text);
+
+    const meta = document.createElement("small");
+    meta.textContent = when(m.created_at);
+    bubble.appendChild(meta);
+
+    frag.appendChild(bubble);
+  });
+
+  cpMsgs.innerHTML = "";
+  cpMsgs.appendChild(frag);
+
+  if (first || nearBottom) cpMsgs.scrollTop = cpMsgs.scrollHeight;
+}
+
+cpForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!cpOrder) return;
+
+  cpErr.textContent = "";
+  const text = cpText.value.trim();
+  if (!text) return;
+
+  if (text.length > 1000) {
+    cpErr.textContent = "That message is too long.";
+    return;
+  }
+
+  const order = cpOrder;
+  const existing = complaintByOrder[order.id];
+
+  cpSend.disabled = true;
+  cpSend.textContent = "...";
+
+  if (!existing) {
+    // First time: create the complaint
+    const { data, error } = await db
+      .from("complaints")
+      .insert({
+        order_id: order.id,
+        filed_by_user_id: session.user.id,
+        filed_by_role: "customer",
+        city: businessCities[order.business_id] || null,
+        business_id: order.business_id,
+        message: text
+      })
+      .select("id, order_id, message, status, created_at")
+      .single();
+
+    cpSend.disabled = false;
+
+    if (error) {
+      cpSend.textContent = "Submit";
+      cpErr.textContent = "Could not submit: " + error.message;
+      return;
+    }
+
+    complaintByOrder[order.id] = data;
+    cpText.value = "";
+    cpIntro.style.display = "none";
+    cpText.placeholder = "Write a reply...";
+    cpSend.textContent = "Send";
+
+    refreshComplaint(true);
+    clearInterval(cpTimer);
+    cpTimer = setInterval(() => refreshComplaint(false), 5000);
+    return;
+  }
+
+  // Complaint already exists: add a reply
+  const { error } = await db.from("complaint_messages").insert({
+    complaint_id: existing.id,
+    sender: "customer",
+    message: text
+  });
+
+  cpSend.disabled = false;
+  cpSend.textContent = "Send";
+
+  if (error) {
+    cpErr.textContent = "Could not send: " + error.message;
+    return;
+  }
+
+  cpText.value = "";
+  refreshComplaint(true);
+});
+
+
