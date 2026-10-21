@@ -387,10 +387,410 @@ function openChat(o) {
   document.body.style.overflow = "hidden";
 
   refreshChat(true);
-  if (chatIs
+  if (chatIsOpen) chatTimer = setInterval(() => refreshChat(false), 5000);
+}
 
+function closeChat() {
+  clearInterval(chatTimer);
+  chatTimer = null;
+  chatOrder = null;
+  chatBox.classList.remove("show");
+  document.body.style.overflow = "";
+  window.location.reload();
+}
 
+async function refreshChat(first) {
+  if (!chatOrder) return;
+  const orderId = chatOrder.id;
 
+  const { data, error } = await db
+    .from("messages")
+    .select("id, sender_id, body, image_path, created_at, read_at")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
 
+  if (!chatOrder || chatOrder.id !== orderId) return;
 
+  if (error) {
+    chatErr.textContent = "Could not load messages: " + error.message;
+    return;
+  }
+  chatErr.textContent = "";
 
+  // Read receipts: mark the customer's messages as read now that we have seen them
+  if (data.some((m) => m.sender_id !== me && !m.read_at)) {
+    await db
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("order_id", orderId)
+      .neq("sender_id", me)
+      .is("read_at", null);
+  }
+
+  const signature = data.map((m) => m.id + ":" + (m.read_at ? 1 : 0)).join("|");
+  if (!first && signature === lastSignature) return;
+  lastSignature = signature;
+
+  await drawMessages(data, first);
+}
+
+async function imageUrl(path) {
+  if (signedUrls[path]) return signedUrls[path];
+  const { data } = await db.storage.from(CHAT_BUCKET).createSignedUrl(path, 3600);
+  if (data && data.signedUrl) signedUrls[path] = data.signedUrl;
+  return signedUrls[path] || null;
+}
+
+async function drawMessages(list, first) {
+  const nearBottom = chatMsgs.scrollHeight - chatMsgs.scrollTop - chatMsgs.clientHeight < 80;
+  const frag = document.createDocumentFragment();
+
+  if (list.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "oc-empty";
+    empty.textContent = chatIsOpen
+      ? "No messages yet. Say hello to your customer."
+      : "There are no messages for this order.";
+    frag.appendChild(empty);
+  }
+
+  for (const m of list) {
+    const mine = m.sender_id === me;
+    const bubble = document.createElement("div");
+    bubble.className = "oc-msg " + (mine ? "me" : "them");
+
+    if (m.image_path) {
+      const url = await imageUrl(m.image_path);
+      if (url) {
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "Picture";
+        bubble.appendChild(img);
+      }
+    }
+
+    if (m.body) {
+      const text = document.createElement("span");
+      text.textContent = m.body;
+      bubble.appendChild(text);
+    }
+
+    const meta = document.createElement("small");
+    meta.textContent = whenText(m.created_at) + (mine ? (m.read_at ? " · Seen" : " · Sent") : "");
+    bubble.appendChild(meta);
+
+    frag.appendChild(bubble);
+  }
+
+  chatMsgs.innerHTML = "";
+  chatMsgs.appendChild(frag);
+
+  if (first || nearBottom) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+}
+
+async function sendMessage(e) {
+  e.preventDefault();
+  if (!chatOrder || !chatIsOpen) return;
+
+  chatErr.textContent = "";
+  const text = chatText.value.trim();
+  const file = chatPhoto.files[0];
+
+  if (!text && !file) return;
+
+  if (text.length > 1000) {
+    chatErr.textContent = "That message is too long.";
+    return;
+  }
+  if (LINK_PATTERN.test(text)) {
+    chatErr.textContent = "Links are not allowed in chat.";
+    return;
+  }
+  if (file && !file.type.startsWith("image/")) {
+    chatErr.textContent = "Only pictures can be sent.";
+    return;
+  }
+  if (file && file.size > MAX_IMAGE_BYTES) {
+    chatErr.textContent = "That picture is too big. Please use one under 3MB.";
+    return;
+  }
+
+  chatSend.disabled = true;
+  chatSend.textContent = "...";
+
+  let path = null;
+  if (file) {
+    const ext = ({ "image/png": "png", "image/webp": "webp", "image/gif": "gif" })[file.type] || "jpg";
+    path = chatOrder.id + "/" + Date.now() + "." + ext;
+
+    const { error: uploadError } = await db.storage.from(CHAT_BUCKET).upload(path, file);
+    if (uploadError) {
+      chatSend.disabled = false;
+      chatSend.textContent = "Send";
+      chatErr.textContent = "Picture upload failed: " + uploadError.message;
+      return;
+    }
+  }
+
+  const { error } = await db.from("messages").insert({
+    order_id: chatOrder.id,
+    sender_id: me,
+    body: text,
+    image_path: path
+  });
+
+  chatSend.disabled = false;
+  chatSend.textContent = "Send";
+
+  if (error) {
+    chatErr.textContent = "Could not send: " + error.message;
+    return;
+  }
+
+  chatText.value = "";
+  clearPhoto();
+  refreshChat(true);
+}
+
+// ============================================================
+// Complaints (Report an issue). Tied to one order, never read-only.
+// Built here so no HTML change is needed.
+// ============================================================
+let cpBox, cpTitle, cpSub, cpIntro, cpMsgs, cpErr, cpForm, cpText, cpSend;
+let cpOrder = null;
+let cpTimer = null;
+let cpSignature = "";
+
+function buildComplaint() {
+  if (cpBox) return;
+
+  const style = document.createElement("style");
+  style.textContent =
+    "#ocp{position:fixed;inset:0;background:#f6f6f4;display:none;flex-direction:column;z-index:60;height:100dvh;font-family:inherit}" +
+    "#ocp.show{display:flex}" +
+    ".ocp-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border-bottom:1px solid #e4e4e4}" +
+    ".ocp-head button{border:0;background:none;font-size:22px;cursor:pointer;padding:0 6px}" +
+    ".ocp-head strong{display:block;font-size:16px}.ocp-head span{font-size:12px;color:#777}" +
+    "#ocpIntro{padding:12px 14px;background:#fff3d6;color:#6b4600;font-size:14px}" +
+    "#ocpMsgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}" +
+    ".ocp-msg{max-width:80%;padding:8px 12px;border-radius:14px;font-size:15px;line-height:1.35;word-wrap:break-word;white-space:pre-wrap}" +
+    ".ocp-msg.me{align-self:flex-end;background:#1c1c1c;color:#fff;border-bottom-right-radius:4px}" +
+    ".ocp-msg.them{align-self:flex-start;background:#fff;border-bottom-left-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.08)}" +
+    ".ocp-msg .who{display:block;font-size:12px;font-weight:700;margin-bottom:2px;color:#0b4a9e}" +
+    ".ocp-msg small{display:block;margin-top:2px;font-size:11px;opacity:.65;text-align:right}" +
+    ".ocp-empty{margin:auto;color:#888;font-size:14px;text-align:center}" +
+    "#ocpErr{padding:0 14px;color:#b3261e;font-size:13px}" +
+    "#ocpForm{display:flex;gap:8px;align-items:flex-end;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e4e4e4}" +
+    "#ocpText{flex:1;resize:none;border:1px solid #ddd;border-radius:12px;padding:10px;font:inherit;font-size:16px;max-height:110px}" +
+    "#ocpSend{border:0;background:#1c1c1c;color:#fff;border-radius:12px;height:44px;padding:0 16px;font:inherit;font-weight:700;cursor:pointer}" +
+    "#ocpSend:disabled{opacity:.5}";
+  document.head.appendChild(style);
+
+  cpBox = document.createElement("section");
+  cpBox.id = "ocp";
+  cpBox.innerHTML =
+    '<div class="ocp-head"><button type="button" id="ocpClose" aria-label="Close">&larr;</button>' +
+    '<div><strong id="ocpTitle"></strong><span id="ocpSub"></span></div></div>' +
+    '<div id="ocpIntro">Tell us what went wrong with this order. Our team will read it and reply here.</div>' +
+    '<div id="ocpMsgs"></div>' +
+    '<div id="ocpErr"></div>' +
+    '<form id="ocpForm">' +
+    '<textarea id="ocpText" rows="1" maxlength="1000" placeholder="Describe the problem..."></textarea>' +
+    '<button type="submit" id="ocpSend">Submit</button></form>';
+  document.body.appendChild(cpBox);
+
+  cpTitle = document.getElementById("ocpTitle");
+  cpSub = document.getElementById("ocpSub");
+  cpIntro = document.getElementById("ocpIntro");
+  cpMsgs = document.getElementById("ocpMsgs");
+  cpErr = document.getElementById("ocpErr");
+  cpForm = document.getElementById("ocpForm");
+  cpText = document.getElementById("ocpText");
+  cpSend = document.getElementById("ocpSend");
+
+  document.getElementById("ocpClose").addEventListener("click", closeComplaint);
+  cpForm.addEventListener("submit", submitComplaint);
+}
+
+function openComplaint(o) {
+  buildComplaint();
+  cpOrder = o;
+  cpSignature = "";
+
+  cpTitle.textContent = "Report an issue";
+  cpSub.textContent = "Order #" + (o.reference || o.id).toString().slice(-6).toUpperCase();
+  cpMsgs.innerHTML = "";
+  cpErr.textContent = "";
+  cpText.value = "";
+
+  const existing = complaintByOrder[o.id];
+  cpIntro.style.display = existing ? "none" : "block";
+  cpText.placeholder = existing ? "Write a reply..." : "Describe the problem...";
+  cpSend.textContent = existing ? "Send" : "Submit";
+
+  cpBox.classList.add("show");
+  document.body.style.overflow = "hidden";
+
+  if (existing) {
+    refreshComplaint(true);
+    cpTimer = setInterval(() => refreshComplaint(false), 5000);
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "ocp-empty";
+    empty.textContent = "No complaint yet for this order.";
+    cpMsgs.appendChild(empty);
+  }
+}
+
+function closeComplaint() {
+  clearInterval(cpTimer);
+  cpTimer = null;
+  cpOrder = null;
+  cpBox.classList.remove("show");
+  document.body.style.overflow = "";
+  window.location.reload();
+}
+
+async function refreshComplaint(first) {
+  if (!cpOrder) return;
+  const orderId = cpOrder.id;
+  const complaint = complaintByOrder[orderId];
+  if (!complaint) return;
+
+  const { data, error } = await db
+    .from("complaint_messages")
+    .select("id, sender, message, created_at")
+    .eq("complaint_id", complaint.id)
+    .order("created_at", { ascending: true });
+
+  if (!cpOrder || cpOrder.id !== orderId) return;
+
+  if (error) {
+    cpErr.textContent = "Could not load replies: " + error.message;
+    return;
+  }
+  cpErr.textContent = "";
+
+  const signature = data.map((m) => m.id).join("|");
+  if (!first && signature === cpSignature) return;
+  cpSignature = signature;
+
+  drawComplaint(complaint, data, first);
+}
+
+function drawComplaint(complaint, replies, first) {
+  const nearBottom = cpMsgs.scrollHeight - cpMsgs.scrollTop - cpMsgs.clientHeight < 80;
+  const frag = document.createDocumentFragment();
+
+  // The original complaint is the first bubble (always from this owner)
+  const original = document.createElement("div");
+  original.className = "ocp-msg me";
+  const originalText = document.createElement("span");
+  originalText.textContent = complaint.message;
+  const originalMeta = document.createElement("small");
+  originalMeta.textContent = whenText(complaint.created_at);
+  original.append(originalText, originalMeta);
+  frag.appendChild(original);
+
+  // Then every reply, oldest first
+  replies.forEach((m) => {
+    const fromAdmin = m.sender === "admin";
+    const bubble = document.createElement("div");
+    bubble.className = "ocp-msg " + (fromAdmin ? "them" : "me");
+
+    if (fromAdmin) {
+      const who = document.createElement("span");
+      who.className = "who";
+      who.textContent = "City Plug team";
+      bubble.appendChild(who);
+    }
+
+    const text = document.createElement("span");
+    text.textContent = m.message;
+    bubble.appendChild(text);
+
+    const meta = document.createElement("small");
+    meta.textContent = whenText(m.created_at);
+    bubble.appendChild(meta);
+
+    frag.appendChild(bubble);
+  });
+
+  cpMsgs.innerHTML = "";
+  cpMsgs.appendChild(frag);
+
+  if (first || nearBottom) cpMsgs.scrollTop = cpMsgs.scrollHeight;
+}
+
+async function submitComplaint(e) {
+  e.preventDefault();
+  if (!cpOrder) return;
+
+  cpErr.textContent = "";
+  const text = cpText.value.trim();
+  if (!text) return;
+
+  if (text.length > 1000) {
+    cpErr.textContent = "That message is too long.";
+    return;
+  }
+
+  const order = cpOrder;
+  const existing = complaintByOrder[order.id];
+
+  cpSend.disabled = true;
+  cpSend.textContent = "...";
+
+  if (!existing) {
+    // First time: create the complaint
+    const { data, error } = await db
+      .from("complaints")
+      .insert({
+        order_id: order.id,
+        filed_by_user_id: me,
+        filed_by_role: "owner",
+        city: myCity,
+        business_id: myBusinessId,
+        message: text
+      })
+      .select("id, order_id, message, status, created_at")
+      .single();
+
+    cpSend.disabled = false;
+
+    if (error) {
+      cpSend.textContent = "Submit";
+      cpErr.textContent = "Could not submit: " + error.message;
+      return;
+    }
+
+    complaintByOrder[order.id] = data;
+    cpText.value = "";
+    cpIntro.style.display = "none";
+    cpText.placeholder = "Write a reply...";
+    cpSend.textContent = "Send";
+
+    refreshComplaint(true);
+    clearInterval(cpTimer);
+    cpTimer = setInterval(() => refreshComplaint(false), 5000);
+    return;
+  }
+
+  // Complaint already exists: add a reply
+  const { error } = await db.from("complaint_messages").insert({
+    complaint_id: existing.id,
+    sender: "owner",
+    message: text
+  });
+
+  cpSend.disabled = false;
+  cpSend.textContent = "Send";
+
+  if (error) {
+    cpErr.textContent = "Could not send: " + error.message;
+    return;
+  }
+
+  cpText.value = "";
+  refreshComplaint(true);
+}
