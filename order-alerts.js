@@ -18,33 +18,44 @@
   const currentPage = () => window.location.pathname.split("/").pop();
   const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
 
+  // TEMPORARY: shows any problem on screen. Remove once the alert works.
+  function report(e) {
+    const box = document.createElement("div");
+    box.textContent = "Order alert problem: " + (e && e.message ? e.message : e);
+    box.style.cssText = "padding:8px;background:#fff3cd;color:#000;font-size:13px;";
+    document.body.prepend(box);
+  }
+
   // ---------- Data ----------
   async function getOwnedBusinessIds(userId) {
-    const { data } = await db
+    const { data, error } = await db
       .from("businesses")
       .select("id")
       .eq("owner_id", userId);
+    if (error) throw error;
     return (data || []).map((b) => b.id);
   }
 
   // Paid orders the owner has not marked as shipped yet
   async function countOrdersToShip(businessIds) {
-    const { count } = await db
+    const { count, error } = await db
       .from("orders")
       .select("id", { count: "exact", head: true })
       .in("business_id", businessIds)
       .eq("status", "paid")
       .is("shipped_at", null);
+    if (error) throw error;
     return count || 0;
   }
 
   // Messages from customers that the owner has not seen yet
   async function countUnreadMessages(userId) {
-    const { count } = await db
+    const { count, error } = await db
       .from("messages")
       .select("id", { count: "exact", head: true })
       .is("read_at", null)
       .neq("sender_id", userId);
+    if (error) throw error;
     return count || 0;
   }
 
@@ -115,7 +126,7 @@
       const businessIds = await getOwnedBusinessIds(userId);
       if (businessIds.length === 0) return; // customers stop here
 
-      const update = () => refresh(userId, businessIds).catch(() => {});
+      const update = () => refresh(userId, businessIds).catch(report);
       await update();
 
       // Instant updates (needs Realtime switched on, see step 3)
@@ -130,7 +141,7 @@
       });
       setInterval(update, REFRESH_MS);
     } catch (e) {
-      // Alerts must never break the page
+      report(e);
     }
   }
 
