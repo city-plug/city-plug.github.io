@@ -18,12 +18,15 @@
   const currentPage = () => window.location.pathname.split("/").pop();
   const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
 
-  // TEMPORARY: shows any problem on screen. Remove once the alert works.
+  // DEBUG (temporary): shows messages in a strip at the bottom of the screen.
+  // Remove this function and every report(...) line once the alert works.
   function report(e) {
     const box = document.createElement("div");
-    box.textContent = "Order alert problem: " + (e && e.message ? e.message : e);
-    box.style.cssText = "padding:8px;background:#fff3cd;color:#000;font-size:13px;";
-    document.body.prepend(box);
+    box.textContent = e && e.message ? "Order alert problem: " + e.message : String(e);
+    box.style.cssText =
+      "position:fixed;left:0;right:0;bottom:0;z-index:99999;padding:8px;" +
+      "background:#fff3cd;color:#000;font-size:13px;border-top:1px solid #999;";
+    document.body.appendChild(box);
   }
 
   // ---------- Data ----------
@@ -113,17 +116,24 @@
       countOrdersToShip(businessIds),
       countUnreadMessages(userId),
     ]);
+    report("alerts: orders to ship = " + orders + ", unread messages = " + messages); // DEBUG
     renderNavLink(orders + messages);
     renderBanner(orders, messages);
   }
 
   async function start() {
     try {
+      report("alerts: script is running"); // DEBUG
+
       const { data } = await db.auth.getSession();
-      if (!data.session) return;
+      if (!data.session) {
+        report("alerts: no login session found"); // DEBUG
+        return;
+      }
 
       const userId = data.session.user.id;
       const businessIds = await getOwnedBusinessIds(userId);
+      report("alerts: businesses found = " + businessIds.length); // DEBUG
       if (businessIds.length === 0) return; // customers stop here
 
       const update = () => refresh(userId, businessIds).catch(report);
