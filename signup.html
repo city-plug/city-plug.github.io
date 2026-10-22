@@ -28,10 +28,10 @@
       <input type="email" id="email" required><br>
 
       <label for="password">Password</label>
-      <input type="password" id="password" minlength="6" required><br>
+      <input type="password" id="password" autocomplete="new-password" required><br>
 
       <label for="confirm">Confirm password</label>
-      <input type="password" id="confirm" minlength="6" required><br>
+      <input type="password" id="confirm" autocomplete="new-password" required><br>
 
       <label for="role">I am signing up as</label>
       <select id="role" required>
@@ -48,6 +48,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
+  <script src="password-rules.js"></script>
   <script src="signup.js"></script>
 </body>
 </html>

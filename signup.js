@@ -2,6 +2,9 @@ const form = document.getElementById("signup-form");
 const message = document.getElementById("message");
 const button = document.getElementById("submit-btn");
 
+// Live checklist under the password box (rules live in password-rules.js)
+PasswordRules.attachChecklist(document.getElementById("password"));
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   message.textContent = "";
@@ -13,8 +16,9 @@ form.addEventListener("submit", async (e) => {
   const confirm = document.getElementById("confirm").value;
   const role = document.getElementById("role").value;
 
-  if (password.length < 6) {
-    message.textContent = "Password must be at least 6 characters.";
+  const problem = PasswordRules.firstProblem(password);
+  if (problem) {
+    message.textContent = problem;
     return;
   }
   if (password !== confirm) {
@@ -53,5 +57,3 @@ form.addEventListener("submit", async (e) => {
     message.textContent = "Account created. Check your email (and spam) to confirm, then log in.";
   }
 });
-
-
