@@ -1,0 +1,112 @@
+/* owner-card.css: the white cards shown only to the owner of a business
+   (business link, business picture). Shared by business-link.js and business-banner.js. */
+.ocard {
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  margin: 16px 0;
+}
+
+.ocard-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ocard-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #e8f0fe;
+  color: #1c6ef2;
+}
+
+.ocard-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c1c1e;
+}
+
+.ocard-sub {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #6b7280;
+}
+
+/* The link itself, shown as a tappable pill */
+.ocard-pill {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f3f4f6;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  text-align: left;
+  color: #1c1c1e;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ocard-muted {
+  color: #6b7280;
+}
+
+.ocard-pill strong {
+  font-weight: 700;
+  color: #1c6ef2;
+}
+
+.ocard-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ocard-btn {
+  flex: 1;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ocard-btn.primary {
+  flex: 1.4;
+  background: #1c6ef2;
+  color: #fff;
+}
+
+.ocard-btn.secondary {
+  background: #fff;
+  border-color: #1c6ef2;
+  color: #1c6ef2;
+}
+
+/* After a successful copy */
+.ocard-btn.done {
+  background: #e7f6ec;
+  border-color: #b7e1c4;
+  color: #1e7e34;
+}
+
+.ocard-hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}

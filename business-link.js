@@ -1,8 +1,10 @@
 // business-link.js
 // Shared code for business links: read them, build them, and show them to the owner.
-// Load it AFTER config.js and BEFORE business.js.
-// The card's styles live in business-link.css.
+// Load it AFTER config.js and dom.js, and BEFORE business.js.
+// The card styles live in owner-card.css.
 const BusinessLink = (() => {
+  const el = Dom.el;
+
   const PAGE = "business.html";
   const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/;
   const COPIED_MS = 2000;
@@ -53,13 +55,6 @@ const BusinessLink = (() => {
 
   // ---------- Small helpers ----------
 
-  function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text) node.textContent = text;
-    return node;
-  }
-
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text);
@@ -107,32 +102,32 @@ const BusinessLink = (() => {
     const canShare = typeof navigator.share === "function";
 
     // Heading
-    const icon = el("span", "blink-icon");
+    const icon = el("span", "ocard-icon");
     icon.innerHTML = LINK_ICON; // fixed icon, no user text involved
 
     const titles = el("div");
     titles.append(
-      el("h3", "blink-title", "Your business link"),
-      el("p", "blink-sub", "Customers who tap it land straight on your page.")
+      el("h3", "ocard-title", "Your business link"),
+      el("p", "ocard-sub", "Customers who tap it land straight on your page.")
     );
 
-    const head = el("div", "blink-head");
+    const head = el("div", "ocard-head");
     head.append(icon, titles);
 
     // The link, shown as a tappable pill
     const [prefix, slug] = splitLink(link, business.slug);
-    const pill = el("button", "blink-pill");
+    const pill = el("button", "ocard-pill");
     pill.type = "button";
     pill.title = "Tap to copy";
-    pill.append(el("span", "blink-muted", prefix), el("strong", "", slug));
+    pill.append(el("span", "ocard-muted", prefix), el("strong", "", slug));
 
     // Buttons
-    const copyBtn = el("button", "blink-btn " + (canShare ? "secondary" : "primary"), "Copy link");
+    const copyBtn = el("button", "ocard-btn " + (canShare ? "secondary" : "primary"), "Copy link");
     copyBtn.type = "button";
 
-    const actions = el("div", "blink-actions");
+    const actions = el("div", "ocard-actions");
     if (canShare) {
-      const shareBtn = el("button", "blink-btn primary", "Share");
+      const shareBtn = el("button", "ocard-btn primary", "Share");
       shareBtn.type = "button";
       shareBtn.addEventListener("click", async () => {
         try {
@@ -149,7 +144,7 @@ const BusinessLink = (() => {
     }
     actions.append(copyBtn);
 
-    const hint = el("p", "blink-hint", "Press and hold the link above to copy it.");
+    const hint = el("p", "ocard-hint", "Press and hold the link above to copy it.");
     hint.hidden = true;
 
     const copyAction = async () => {
@@ -164,7 +159,7 @@ const BusinessLink = (() => {
     copyBtn.addEventListener("click", copyAction);
     pill.addEventListener("click", copyAction);
 
-    const card = el("section", "blink");
+    const card = el("section", "ocard");
     card.append(head, pill, actions, hint);
     beforeEl.before(card);
   }
