@@ -1,9 +1,11 @@
-// One page for every business: business.html?id=<business id>
+// One page for every business: business.html?b=<business link name>
+// (older links with ?id=<business id> still work).
 // Customers see the business, rate it, view products and pay.
-// The owner of THIS business also gets: add products, delete products, and set up payouts.
+// The owner of THIS business also gets: add products, delete products, set up payouts,
+// and their shareable business link.
+// The link logic lives in business-link.js, which must load before this file.
 
-const params = new URLSearchParams(window.location.search);
-const businessId = params.get("id");
+const businessKey = BusinessLink.keyFromUrl();
 
 const statusEl = document.getElementById("status");
 const bizSection = document.getElementById("bizSection");
@@ -29,7 +31,7 @@ init();
 
 // ---------- Start ----------
 async function init() {
-  if (!businessId) {
+  if (!businessKey) {
     window.location.href = "index.html";
     return;
   }
@@ -37,11 +39,12 @@ async function init() {
   const { data: s } = await db.auth.getSession();
   session = s.session;
 
-  const { data, error } = await db
-    .from("businesses")
-    .select("id, owner_id, name, city, category, description, payments_enabled, address, verified")
-    .eq("id", businessId)
-    .maybeSingle();
+  const { data, error } = await BusinessLink.applyKey(
+    db
+      .from("businesses")
+      .select("id, owner_id, name, city, category, description, payments_enabled, address, verified, slug"),
+    businessKey
+  ).maybeSingle();
 
   if (error || !data) {
     statusEl.textContent = "Business not found.";
@@ -52,6 +55,7 @@ async function init() {
   isOwner = !!session && session.user.id === business.owner_id;
 
   showBusiness();
+  BusinessLink.canonicalize(business.slug);
   showContact();
   loadRating();
   loadProducts();
@@ -62,6 +66,7 @@ async function init() {
     ordersLink.href = "owner-orders.html";
     ordersLink.textContent = "View my orders →";
     ownerBox.before(ordersLink);
+    BusinessLink.mountOwnerBox(ownerBox, business);
 
     ownerBox.hidden = false;
     setupContactForm();
