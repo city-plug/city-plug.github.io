@@ -1,0 +1,111 @@
+/* business-link.css: the "Your business link" card on the owner's business page */
+.blink {
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  margin: 16px 0;
+}
+
+.blink-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.blink-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #e8f0fe;
+  color: #1c6ef2;
+}
+
+.blink-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c1c1e;
+}
+
+.blink-sub {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #6b7280;
+}
+
+/* The link itself, shown as a tappable pill */
+.blink-pill {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f3f4f6;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  text-align: left;
+  color: #1c1c1e;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.blink-muted {
+  color: #6b7280;
+}
+
+.blink-pill strong {
+  font-weight: 700;
+  color: #1c6ef2;
+}
+
+.blink-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.blink-btn {
+  flex: 1;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.blink-btn.primary {
+  flex: 1.4;
+  background: #1c6ef2;
+  color: #fff;
+}
+
+.blink-btn.secondary {
+  background: #fff;
+  border-color: #1c6ef2;
+  color: #1c6ef2;
+}
+
+/* After a successful copy */
+.blink-btn.done {
+  background: #e7f6ec;
+  border-color: #b7e1c4;
+  color: #1e7e34;
+}
+
+.blink-hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
