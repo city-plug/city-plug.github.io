@@ -3,6 +3,9 @@ const message = document.getElementById("message");
 const button = document.getElementById("submit-btn");
 const resendBtn = document.getElementById("resend-btn");
 
+// If a buyer came from a business link, remember where to send them back
+ReturnTo.stashFromQuery();
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   message.textContent = "";
@@ -35,13 +38,14 @@ form.addEventListener("submit", async (e) => {
     .maybeSingle();
 
   const role = data.user.user_metadata.role;
+  const comingBack = ReturnTo.take();
 
   if (business) {
     window.location.href = "my-business.html";
   } else if (role === "owner") {
     window.location.href = "create-business.html";
   } else {
-    window.location.href = "index.html";
+    window.location.href = comingBack || "index.html";
   }
 });
 
@@ -56,5 +60,3 @@ resendBtn.addEventListener("click", async () => {
   message.textContent = error ? error.message : "Confirmation email sent. Check your inbox.";
   setTimeout(() => { resendBtn.disabled = false; }, 30000);
 });
-
-
