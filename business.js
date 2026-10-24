@@ -1,9 +1,10 @@
 // One page for every business: business.html?b=<business link name>
 // (older links with ?id=<business id> still work).
-// Customers see the business, rate it, view products and pay.
-// The owner of THIS business also gets: add products, delete products, set up payouts,
-// and their shareable business link.
-// The link logic lives in business-link.js, which must load before this file.
+// Customers see the business, its banner picture, rate it, view products and pay.
+// The owner of THIS business also gets: their shareable link, banner picture,
+// add products, delete products, and payout setup.
+// Shared code that must load before this file:
+//   business-link.js (links), business-banner.js (banner), return-to.js (come back after login).
 
 const businessKey = BusinessLink.keyFromUrl();
 
@@ -42,7 +43,7 @@ async function init() {
   const { data, error } = await BusinessLink.applyKey(
     db
       .from("businesses")
-      .select("id, owner_id, name, city, category, description, payments_enabled, address, verified, slug"),
+      .select("id, owner_id, name, city, category, description, payments_enabled, address, verified, slug, banner_path"),
     businessKey
   ).maybeSingle();
 
@@ -55,6 +56,7 @@ async function init() {
   isOwner = !!session && session.user.id === business.owner_id;
 
   showBusiness();
+  BusinessBanner.show(business);
   BusinessLink.canonicalize(business.slug);
   showContact();
   loadRating();
@@ -67,6 +69,7 @@ async function init() {
     ordersLink.textContent = "View my orders →";
     ownerBox.before(ordersLink);
     BusinessLink.mountOwnerBox(ownerBox, business);
+    BusinessBanner.mountOwnerBox(ownerBox, business);
 
     ownerBox.hidden = false;
     setupContactForm();
@@ -158,7 +161,7 @@ async function rate(stars) {
   rateMsg.textContent = "";
 
   if (!session) {
-    rateMsg.innerHTML = 'Log in to rate. <a href="login.html">Log in</a>';
+    rateMsg.innerHTML = ReturnTo.promptHtml("to rate");
     return;
   }
 
@@ -354,7 +357,7 @@ function setupBuying() {
     }
 
     if (!session) {
-      payNote.innerHTML = 'Please <a href="login.html">log in</a> to pay.';
+      payNote.innerHTML = ReturnTo.promptHtml("to pay");
       return;
     }
 
@@ -624,7 +627,7 @@ function setupContactForm() {
     f("cBtn").disabled = false;
 
     if (error) {
-      msg.textContent = "Could not save: " + error.message;
+      msg.textContent = error.message;
       return;
     }
 
