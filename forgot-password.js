@@ -1,7 +1,7 @@
 // Forgot password: asks Supabase to email a reset link.
 // The link opens reset-password.html, where the new password is chosen.
+// Needs site-url.js, which builds the link from the address the site is on now.
 
-const RESET_PAGE = "https://city-plug.github.io/reset-password.html";
 const COOLDOWN_SECONDS = 60;
 
 const form = document.getElementById("forgot-form");
@@ -42,7 +42,7 @@ form.addEventListener("submit", async (e) => {
   button.textContent = "Sending...";
 
   const { error } = await db.auth.resetPasswordForEmail(email, {
-    redirectTo: RESET_PAGE
+    redirectTo: SiteUrl.page("reset-password.html")
   });
 
   if (error && isRateLimited(error)) {
