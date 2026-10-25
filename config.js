@@ -5,7 +5,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 // Cities and categories live here, so you change them in one place.
 // Every category exists inside every city.
-const CITIES = ["Auchi", "Lagos", "Port Harcourt", "Abuja"];
+const CITIES = ["Auchi", "Benin City", "Ekpoma", "Warri", "Lagos", "Port Harcourt", "Abuja"];
 const CATEGORIES = ["Food", "Fashion", "Shoes", "Gadgets", "Perfumes", "Hygiene"];
 
 // "db" is the connection every other file uses.

@@ -1,0 +1,6 @@
+/* city-tiles.css: cities that have no businesses yet */
+.tile.soon {
+  opacity: 0.6;
+  cursor: default;
+  pointer-events: none;
+}
