@@ -70,6 +70,7 @@ async function init() {
     ownerBox.before(ordersLink);
     BusinessLink.mountOwnerBox(ownerBox, business);
     BusinessBanner.mountOwnerBox(ownerBox, business);
+    VerifyLink.mountOwnerBox(ownerBox, business);
 
     ownerBox.hidden = false;
     setupContactForm();

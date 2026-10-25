@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Get verified | City Plug</title>
+  <link rel="stylesheet" href="browse.css">
+  <link rel="icon" href="images/favicon.ico" sizes="any">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#000000">
+</head>
+<body>
+  <header>
+    <h1>City Plug</h1>
+    <nav id="nav"></nav>
+  </header>
+
+  <main>
+    <a class="back" href="my-business.html">← Back to my business</a>
+
+    <section id="vf-box" class="owner-box">
+      <h3>Get verified</h3>
+      <p class="note">Verified shops get a badge and more trust from buyers. It's optional.</p>
+      <p id="vf-status" class="small-msg"></p>
+
+      <form id="vf-form">
+        <label for="vf-shop">Photo of your shop or products (required)</label>
+        <input type="file" id="vf-shop" accept="image/*">
+
+        <label for="vf-id">Photo of an ID (optional)</label>
+        <input type="file" id="vf-id" accept="image/*">
+
+        <button type="submit" id="vf-btn">Submit for verification</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="require-login.js"></script>
+  <script src="nav.js"></script>
+  <script src="verify.js"></script>
+</body>
+</html>
