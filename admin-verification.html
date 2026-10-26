@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verification requests | City Plug</title>
+  <link rel="stylesheet" href="browse.css">
+  <link rel="stylesheet" href="owner-card.css">
+  <link rel="stylesheet" href="admin-verifications.css">
+  <link rel="icon" href="images/favicon.ico" sizes="any">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#000000">
+</head>
+<body>
+  <header>
+    <h1>City Plug</h1>
+    <nav id="nav"></nav>
+  </header>
+
+  <main>
+    <h2 class="title">Verification requests</h2>
+    <p id="status"></p>
+    <div id="list"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="dom.js"></script>
+  <script src="admin-guard.js"></script>
+  <script src="nav.js"></script>
+  <script src="admin-verifications.js"></script>
+</body>
+</html>
