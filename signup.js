@@ -16,6 +16,14 @@ form.addEventListener("submit", async (e) => {
   const confirm = document.getElementById("confirm").value;
   const role = document.getElementById("role").value;
 
+  // Grab the Turnstile token from the hidden response field Cloudflare creates
+  const turnstileResponse = document.querySelector('[name="cf-turnstile-response"]')?.value;
+  
+  if (!turnstileResponse) {
+    message.textContent = "Please complete the security check (Turnstile).";
+    return;
+  }
+
   const problem = PasswordRules.firstProblem(password);
   if (problem) {
     message.textContent = problem;
@@ -29,11 +37,16 @@ form.addEventListener("submit", async (e) => {
   button.disabled = true;
   button.textContent = "Creating account...";
 
+  // NOTE: To securely validate your Secret Key (0x4AAAAAAFo48ISJywX7BC4ieao82h427ks), 
+  // you ideally pass 'turnstileResponse' to a server-side function or Supabase Edge Function.
+  // If you are calling supabase.auth.signUp directly from the client frontend, 
+  // ensure your Supabase project's rate limits (which we looked at earlier) are tightly set.
+
   const { data, error } = await db.auth.signUp({
     email: email,
     password: password,
     options: {
-      data: { full_name: fullName, role: role },
+      data: { full_name: fullName, role: role, captcha_token: turnstileResponse },
       emailRedirectTo: "https://city-plug.github.io/login.html"
     }
   });
