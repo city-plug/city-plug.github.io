@@ -20,9 +20,13 @@
   const { data: req } = await db
     .from("verification_requests").select("status").eq("owner_id", user.id).maybeSingle();
   if (req) {
-    statusEl.textContent = req.status === "pending"
-      ? "Your request is being reviewed. This page will update when it's done."
-      : "Your request was not approved. Contact us to try again.";
+       const messages = {
+      pending: "Your request is being reviewed. This page will update when it's done.",
+      approved: "Your request was approved. Your business is now verified.",
+      rejected: "Your request was not approved. Contact us to try again."
+    };
+    statusEl.textContent = messages[req.status] || messages.rejected;
+
     form.style.display = "none";
     return;
   }

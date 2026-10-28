@@ -1,0 +1,16 @@
+/* terms-consent.css: the "I agree to the Terms" checkbox on the sign-up form */
+.terms-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 14px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.terms-row input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
