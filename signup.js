@@ -1,9 +1,27 @@
+// signup.js
 const form = document.getElementById("signup-form");
 const message = document.getElementById("message");
 const button = document.getElementById("submit-btn");
 
 // Live checklist under the password box (rules live in password-rules.js)
 PasswordRules.attachChecklist(document.getElementById("password"));
+
+// "I agree to the Terms" checkbox, placed above the Sign up button
+TermsConsent.mount(button);
+
+// If a buyer came from a business link, remember where to send them back
+ReturnTo.stashFromQuery();
+
+// Cloudflare Turnstile puts its result in a hidden field on the form
+function turnstileToken() {
+  const field = document.querySelector('[name="cf-turnstile-response"]');
+  return field ? field.value : "";
+}
+
+// Turnstile tokens work only once, so ask for a fresh one after a failure
+function resetTurnstile() {
+  if (window.turnstile) window.turnstile.reset();
+}
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -15,12 +33,10 @@ form.addEventListener("submit", async (e) => {
   const password = document.getElementById("password").value;
   const confirm = document.getElementById("confirm").value;
   const role = document.getElementById("role").value;
+  const captchaToken = turnstileToken();
 
-  // Grab the Turnstile token from the hidden response field Cloudflare creates
-  const turnstileResponse = document.querySelector('[name="cf-turnstile-response"]')?.value;
-  
-  if (!turnstileResponse) {
-    message.textContent = "Please complete the security check (Turnstile).";
+  if (!captchaToken) {
+    message.textContent = "Please complete the security check first.";
     return;
   }
 
@@ -33,21 +49,21 @@ form.addEventListener("submit", async (e) => {
     message.textContent = "Passwords do not match.";
     return;
   }
+  if (!TermsConsent.isAccepted()) {
+    message.textContent = "Please accept the Terms of use to create an account.";
+    return;
+  }
 
   button.disabled = true;
   button.textContent = "Creating account...";
-
-  // NOTE: To securely validate your Secret Key (0x4AAAAAAFo48ISJywX7BC4ieao82h427ks), 
-  // you ideally pass 'turnstileResponse' to a server-side function or Supabase Edge Function.
-  // If you are calling supabase.auth.signUp directly from the client frontend, 
-  // ensure your Supabase project's rate limits (which we looked at earlier) are tightly set.
 
   const { data, error } = await db.auth.signUp({
     email: email,
     password: password,
     options: {
-      data: { full_name: fullName, role: role, captcha_token: turnstileResponse },
-      emailRedirectTo: "https://city-plug.github.io/login.html"
+      captchaToken: captchaToken,
+      data: { full_name: fullName, role: role, ...TermsConsent.metadata() },
+      emailRedirectTo: SiteUrl.page("login.html")
     }
   });
 
@@ -56,14 +72,16 @@ form.addEventListener("submit", async (e) => {
 
   if (error) {
     message.textContent = error.message;
+    resetTurnstile();
     return;
   }
 
   if (data.session) {
     if (role === "owner") {
+      ReturnTo.clear();
       window.location.href = "create-business.html";
     } else {
-      window.location.href = "index.html";
+      window.location.href = ReturnTo.take() || "index.html";
     }
   } else {
     message.className = "ok";
